@@ -1,25 +1,31 @@
-import { top20 } from '../../api'
+import request from "@/request/request";
 const state = {
-  topList: {},
-}
+  banners: [],
+  bannerShow:false
+};
 
 const mutations = {
-  setTopList (state, list) {
-    state.topList = list
-  }
-}
+  setBanner(state, list) {
+    state.banners = list;
+  },
+  setBannerShow(state, boolean) {
+    state.bannerShow = boolean;
+  },
+};
 
 const actions = {
-  getTopList (store) {
-    return top20().then((res) => {
-      store.commit('setTopList', res.data.subjects)
-    })
-  }
-}
+  async getBanner({ commit }) {
+    commit("setBannerShow", false);
+    const {data} = await request.get("banner", true);
+    commit("setBanner", data);
+    commit("setBannerShow", true);
+    return data
+  },
+};
 
 export default {
   namespaced: true,
   state,
   actions,
-  mutations
-}
+  mutations,
+};
