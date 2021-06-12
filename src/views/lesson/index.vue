@@ -415,7 +415,7 @@ export default {
 };
 </script>
 
-<style lang='less' scoped>
+<style lang='scss' scoped>
 .el-checkbox__label {
   font-size: 16px!important;
 }

@@ -285,11 +285,7 @@
           <img src="@/assets/section_5_title.png" alt="" />
         </div>
         <div class="seciton_5_slider wow fadeInUp" data-wow-delay=".2s">
-          <swiper
-            class="fiveSwiper wow fadeIn"
-            v-if="show"
-            :options="fiveSliderOption"
-          >
+          <swiper class="fiveSwiper wow fadeIn" :options="fiveSliderOption">
             <swiper-slide v-for="item in teachers" :key="item.id">
               <div class="bg">
                 <div class="img">
@@ -336,9 +332,13 @@ import $ from "jquery";
 import { mapState } from "vuex";
 export default {
   name: "home",
-  inject:['reload'],
-  asyncData: ({store}) => {
-    return store.dispatch("home/getBanner");
+  inject: ["reload"],
+  asyncData: async ({ store }) => {
+    await store.dispatch("home/getBanner");
+    await store.dispatch("home/getTeachers");
+    await store.dispatch("home/free_course");
+    await store.dispatch("home/category");
+    return store.dispatch("home/getSiteInfo");
   },
   data() {
     const that = this;
@@ -353,13 +353,7 @@ export default {
         delivery: false,
       },
       formLabelWidth: "120px",
-      teachers: [],
-      free_course: [],
-      category: [],
-      site: {},
-      site_info: {},
       course_id: 0,
-      show: false,
       swiperOptions: {
         autoplay: true,
         loop: true,
@@ -388,6 +382,11 @@ export default {
     ...mapState({
       banners: (state) => state.home.banners,
       bannerShow: (state) => state.home.banner,
+      category: (state) => state.home.category,
+      free_course: (state) => state.home.free_course,
+      teachers: (state) => state.home.teachers,
+      site: (state) => state.home.site,
+      site_info: (state) => state.home.site_info,
     }),
   },
   mounted() {
@@ -427,54 +426,9 @@ export default {
     }
 
     setTimeout(() => {
-      if (this.$route.query.aurl) {
-        let top = $("#" + this.$route.query.aurl).offset().top;
-        $("html,body").animate({ scrollTop: top }, 500);
-      }
-    }, 200);
-
-    this.get("home/category", false).then((res) => {
-      this.category = res.data;
-      setTimeout(() => {
-        if (this.$route.query.aurl) {
-          let top = $("#" + this.$route.query.aurl).offset().top;
-          $("html,body").animate({ scrollTop: top }, 500);
-        }
-      }, 200);
-    });
-    this.get("home/free_course", false).then((res) => {
-      this.free_course = res.data;
-      setTimeout(() => {
-        if (this.$route.query.aurl) {
-          let top = $("#" + this.$route.query.aurl).offset().top;
-          $("html,body").animate({ scrollTop: top }, 500);
-        }
-      }, 200);
-    });
-    this.get("teacher/list", false).then((res) => {
-      this.teachers = res.data;
-      this.show = true;
-      setTimeout(() => {
-        if (this.$route.query.aurl) {
-          let top = $("#" + this.$route.query.aurl).offset().top;
-          $("html,body").animate({ scrollTop: top }, 500);
-        }
-      }, 200);
-    });
-    this.get("site_info", false).then((res) => {
-      this.site = res.data;
-      this.site_info = res.data.course;
-      setTimeout(() => {
-        $(window).scroll(function() {
-          dynamicNum($(".section_3 .list_box"));
-        });
-        if (this.$route.query.aurl) {
-          let top = $("#" + this.$route.query.aurl).offset().top;
-          $("html,body").animate({ scrollTop: top }, 500);
-        }
-      }, 200);
-    });
-    setTimeout(() => {
+      $(window).scroll(function() {
+        dynamicNum($(".section_3 .list_box"));
+      });
       if (this.$route.query.aurl) {
         let top = $("#" + this.$route.query.aurl).offset().top;
         $("html,body").animate({ scrollTop: top }, 500);
@@ -494,7 +448,7 @@ export default {
         query: { id },
       });
       window.open(routeUrl.href, "_blank");
-      this.reload()
+      this.reload();
     },
     playlesson(id) {
       this.$router.push({

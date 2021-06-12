@@ -1,12 +1,12 @@
 (window["webpackJsonp"] = window["webpackJsonp"] || []).push([[1],{
 
-/***/ 439:
+/***/ 443:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _index_vue_vue_type_template_id_5954443c___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(440);
-/* harmony import */ var _index_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(460);
+/* harmony import */ var _index_vue_vue_type_template_id_5954443c___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(444);
+/* harmony import */ var _index_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(464);
 /* empty/unused harmony star reexport *//* harmony import */ var _node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(12);
 
 
@@ -33,12 +33,12 @@ component.options.__file = "src/views/home/index.vue"
 
 /***/ }),
 
-/***/ 440:
+/***/ 444:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_index_vue_vue_type_template_id_5954443c___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(441);
+/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_index_vue_vue_type_template_id_5954443c___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(445);
 /* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "render", function() { return _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_index_vue_vue_type_template_id_5954443c___WEBPACK_IMPORTED_MODULE_0__["render"]; });
 
 /* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "staticRenderFns", function() { return _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_index_vue_vue_type_template_id_5954443c___WEBPACK_IMPORTED_MODULE_0__["staticRenderFns"]; });
@@ -47,7 +47,7 @@ __webpack_require__.r(__webpack_exports__);
 
 /***/ }),
 
-/***/ 441:
+/***/ 445:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -695,43 +695,39 @@ var render = function() {
                 attrs: { "data-wow-delay": ".2s" }
               },
               [
-                _vm.show
-                  ? _c(
-                      "swiper",
-                      {
-                        staticClass: "fiveSwiper wow fadeIn",
-                        attrs: { options: _vm.fiveSliderOption }
-                      },
-                      _vm._l(_vm.teachers, function(item) {
-                        return _c("swiper-slide", { key: item.id }, [
-                          _c("div", { staticClass: "bg" }, [
-                            _c("div", { staticClass: "img" }, [
-                              _c("img", {
-                                attrs: { src: item.avatar, alt: "" }
-                              })
-                            ]),
-                            _vm._v(" "),
-                            _c("div", { staticClass: "name" }, [
-                              _vm._v(_vm._s(item.name))
-                            ]),
-                            _vm._v(" "),
-                            _c("div", { staticClass: "tag" }, [
-                              _vm._v(_vm._s(item.subject))
-                            ]),
-                            _vm._v(" "),
-                            _c("div", { staticClass: "text" }, [
-                              _vm._v(
-                                "\n                " +
-                                  _vm._s(item.content) +
-                                  "\n              "
-                              )
-                            ])
-                          ])
+                _c(
+                  "swiper",
+                  {
+                    staticClass: "fiveSwiper wow fadeIn",
+                    attrs: { options: _vm.fiveSliderOption }
+                  },
+                  _vm._l(_vm.teachers, function(item) {
+                    return _c("swiper-slide", { key: item.id }, [
+                      _c("div", { staticClass: "bg" }, [
+                        _c("div", { staticClass: "img" }, [
+                          _c("img", { attrs: { src: item.avatar, alt: "" } })
+                        ]),
+                        _vm._v(" "),
+                        _c("div", { staticClass: "name" }, [
+                          _vm._v(_vm._s(item.name))
+                        ]),
+                        _vm._v(" "),
+                        _c("div", { staticClass: "tag" }, [
+                          _vm._v(_vm._s(item.subject))
+                        ]),
+                        _vm._v(" "),
+                        _c("div", { staticClass: "text" }, [
+                          _vm._v(
+                            "\n                " +
+                              _vm._s(item.content) +
+                              "\n              "
+                          )
                         ])
-                      }),
-                      1
-                    )
-                  : _vm._e(),
+                      ])
+                    ])
+                  }),
+                  1
+                ),
                 _vm._v(" "),
                 _c("div", { staticClass: "swiper-button-next" }),
                 _vm._v(" "),
@@ -759,7 +755,7 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "section_title" }, [
       _c("img", {
-        attrs: { src: __webpack_require__(442), alt: "" }
+        attrs: { src: __webpack_require__(446), alt: "" }
       })
     ])
   },
@@ -803,7 +799,7 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "section_title wow fadeInUp" }, [
       _c("img", {
-        attrs: { src: __webpack_require__(443), alt: "" }
+        attrs: { src: __webpack_require__(447), alt: "" }
       })
     ])
   },
@@ -813,7 +809,7 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "section_title wow fadeInUp" }, [
       _c("img", {
-        attrs: { src: __webpack_require__(444), alt: "" }
+        attrs: { src: __webpack_require__(448), alt: "" }
       })
     ])
   },
@@ -823,7 +819,7 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "icon" }, [
       _c("img", {
-        attrs: { src: __webpack_require__(445), alt: "" }
+        attrs: { src: __webpack_require__(449), alt: "" }
       })
     ])
   },
@@ -833,7 +829,7 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "icon" }, [
       _c("img", {
-        attrs: { src: __webpack_require__(446), alt: "" }
+        attrs: { src: __webpack_require__(450), alt: "" }
       })
     ])
   },
@@ -843,7 +839,7 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "icon" }, [
       _c("img", {
-        attrs: { src: __webpack_require__(447), alt: "" }
+        attrs: { src: __webpack_require__(451), alt: "" }
       })
     ])
   },
@@ -858,7 +854,7 @@ var staticRenderFns = [
         _c("div", { staticClass: "inner" }, [
           _c("div", { staticClass: "section_title wow fadeInUp" }, [
             _c("img", {
-              attrs: { src: __webpack_require__(448), alt: "" }
+              attrs: { src: __webpack_require__(452), alt: "" }
             })
           ]),
           _vm._v(" "),
@@ -866,7 +862,7 @@ var staticRenderFns = [
             _c("div", { staticClass: "line" }, [
               _c("img", {
                 attrs: {
-                  src: __webpack_require__(449),
+                  src: __webpack_require__(453),
                   alt: ""
                 }
               })
@@ -882,7 +878,7 @@ var staticRenderFns = [
                 [
                   _c("img", {
                     attrs: {
-                      src: __webpack_require__(450),
+                      src: __webpack_require__(454),
                       alt: ""
                     }
                   })
@@ -898,7 +894,7 @@ var staticRenderFns = [
                 [
                   _c("img", {
                     attrs: {
-                      src: __webpack_require__(451),
+                      src: __webpack_require__(455),
                       alt: ""
                     }
                   })
@@ -914,7 +910,7 @@ var staticRenderFns = [
                 [
                   _c("img", {
                     attrs: {
-                      src: __webpack_require__(452),
+                      src: __webpack_require__(456),
                       alt: ""
                     }
                   })
@@ -932,7 +928,7 @@ var staticRenderFns = [
                 [
                   _c("img", {
                     attrs: {
-                      src: __webpack_require__(453),
+                      src: __webpack_require__(457),
                       alt: ""
                     }
                   })
@@ -948,7 +944,7 @@ var staticRenderFns = [
                 [
                   _c("img", {
                     attrs: {
-                      src: __webpack_require__(454),
+                      src: __webpack_require__(458),
                       alt: ""
                     }
                   })
@@ -964,7 +960,7 @@ var staticRenderFns = [
                 [
                   _c("img", {
                     attrs: {
-                      src: __webpack_require__(455),
+                      src: __webpack_require__(459),
                       alt: ""
                     }
                   })
@@ -982,7 +978,7 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "section_title wow fadeInUp" }, [
       _c("img", {
-        attrs: { src: __webpack_require__(456), alt: "" }
+        attrs: { src: __webpack_require__(460), alt: "" }
       })
     ])
   },
@@ -994,7 +990,7 @@ var staticRenderFns = [
       _c("div", { staticClass: "inner" }, [
         _c("div", { staticClass: "section_title wow fadeInUp" }, [
           _c("img", {
-            attrs: { src: __webpack_require__(457), alt: "" }
+            attrs: { src: __webpack_require__(461), alt: "" }
           })
         ]),
         _vm._v(" "),
@@ -1003,14 +999,14 @@ var staticRenderFns = [
             staticClass: "img wow zoomIn",
             attrs: {
               "data-wow-delay": ".1s",
-              src: __webpack_require__(458),
+              src: __webpack_require__(462),
               alt: ""
             }
           }),
           _vm._v(" "),
           _c("div", { staticClass: "img_center" }, [
             _c("img", {
-              attrs: { src: __webpack_require__(459), alt: "" }
+              attrs: { src: __webpack_require__(463), alt: "" }
             })
           ])
         ])
@@ -1024,162 +1020,164 @@ render._withStripped = true
 
 /***/ }),
 
-/***/ 442:
+/***/ 446:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_1_title.c32d2da.png";
 
 /***/ }),
 
-/***/ 443:
+/***/ 447:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_2_title.e9abd52.png";
 
 /***/ }),
 
-/***/ 444:
+/***/ 448:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_3_title.7c969a2.png";
 
 /***/ }),
 
-/***/ 445:
+/***/ 449:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_3_icon_03.0776f87.png";
 
 /***/ }),
 
-/***/ 446:
+/***/ 450:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_3_icon_01.c35f189.png";
 
 /***/ }),
 
-/***/ 447:
+/***/ 451:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_3_icon_02.d16499e.png";
 
 /***/ }),
 
-/***/ 448:
+/***/ 452:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_title.16799ed.png";
 
 /***/ }),
 
-/***/ 449:
+/***/ 453:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_img_line.ca29759.png";
 
 /***/ }),
 
-/***/ 450:
+/***/ 454:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_img_01.72cdf95.png";
 
 /***/ }),
 
-/***/ 451:
+/***/ 455:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_img_02.9bc2b0a.png";
 
 /***/ }),
 
-/***/ 452:
+/***/ 456:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_img_03.4fb9227.png";
 
 /***/ }),
 
-/***/ 453:
+/***/ 457:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_img_04.0960b12.png";
 
 /***/ }),
 
-/***/ 454:
+/***/ 458:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_img_05.5da91d6.png";
 
 /***/ }),
 
-/***/ 455:
+/***/ 459:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_4_img_06.9ae0f7a.png";
 
 /***/ }),
 
-/***/ 456:
+/***/ 460:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_5_title.1fef701.png";
 
 /***/ }),
 
-/***/ 457:
+/***/ 461:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_6_title.075204f.png";
 
 /***/ }),
 
-/***/ 458:
+/***/ 462:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_6_img_01.49f9aad.png";
 
 /***/ }),
 
-/***/ 459:
+/***/ 463:
 /***/ (function(module, exports, __webpack_require__) {
 
 module.exports = __webpack_require__.p + "img/section_6_img.c365560.jpg";
 
 /***/ }),
 
-/***/ 460:
+/***/ 464:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _node_modules_babel_loader_lib_index_js_node_modules_vue_loader_lib_index_js_vue_loader_options_index_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(461);
+/* harmony import */ var _node_modules_babel_loader_lib_index_js_node_modules_vue_loader_lib_index_js_vue_loader_options_index_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(465);
 /* empty/unused harmony star reexport */ /* harmony default export */ __webpack_exports__["default"] = (_node_modules_babel_loader_lib_index_js_node_modules_vue_loader_lib_index_js_vue_loader_options_index_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__["default"]); 
 
 /***/ }),
 
-/***/ 461:
+/***/ 465:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _babel_runtime_helpers_defineProperty__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(462);
+/* harmony import */ var _babel_runtime_helpers_defineProperty__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(466);
 /* harmony import */ var _babel_runtime_helpers_defineProperty__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_babel_runtime_helpers_defineProperty__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(463);
-/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(jquery__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var vuex__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(14);
+/* harmony import */ var _babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(17);
+/* harmony import */ var _babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(18);
+/* harmony import */ var _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default = /*#__PURE__*/__webpack_require__.n(_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2__);
+/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(467);
+/* harmony import */ var jquery__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(jquery__WEBPACK_IMPORTED_MODULE_3__);
+/* harmony import */ var vuex__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(14);
+
 
 
 function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) { symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); } keys.push.apply(keys, symbols); } return keys; }
 
 function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _babel_runtime_helpers_defineProperty__WEBPACK_IMPORTED_MODULE_0___default()(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
 
-//
-//
-//
-//
+
 //
 //
 //
@@ -1513,11 +1511,47 @@ function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { va
 
 /* harmony default export */ __webpack_exports__["default"] = ({
   name: "home",
-  inject: ['reload'],
-  asyncData: function asyncData(_ref) {
-    var store = _ref.store;
-    return store.dispatch("home/getBanner");
-  },
+  inject: ["reload"],
+  asyncData: function () {
+    var _asyncData = _babel_runtime_helpers_asyncToGenerator__WEBPACK_IMPORTED_MODULE_1___default()( /*#__PURE__*/_babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default.a.mark(function _callee(_ref) {
+      var store;
+      return _babel_runtime_regenerator__WEBPACK_IMPORTED_MODULE_2___default.a.wrap(function _callee$(_context) {
+        while (1) {
+          switch (_context.prev = _context.next) {
+            case 0:
+              store = _ref.store;
+              _context.next = 3;
+              return store.dispatch("home/getBanner");
+
+            case 3:
+              _context.next = 5;
+              return store.dispatch("home/getTeachers");
+
+            case 5:
+              _context.next = 7;
+              return store.dispatch("home/free_course");
+
+            case 7:
+              _context.next = 9;
+              return store.dispatch("home/category");
+
+            case 9:
+              return _context.abrupt("return", store.dispatch("home/getSiteInfo"));
+
+            case 10:
+            case "end":
+              return _context.stop();
+          }
+        }
+      }, _callee);
+    }));
+
+    function asyncData(_x) {
+      return _asyncData.apply(this, arguments);
+    }
+
+    return asyncData;
+  }(),
   data: function data() {
     var that = this;
     return {
@@ -1531,13 +1565,7 @@ function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { va
         delivery: false
       },
       formLabelWidth: "120px",
-      teachers: [],
-      free_course: [],
-      category: [],
-      site: {},
-      site_info: {},
       course_id: 0,
-      show: false,
       swiperOptions: {
         autoplay: true,
         loop: true,
@@ -1562,12 +1590,27 @@ function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { va
       }
     };
   },
-  computed: _objectSpread({}, Object(vuex__WEBPACK_IMPORTED_MODULE_2__["mapState"])({
+  computed: _objectSpread({}, Object(vuex__WEBPACK_IMPORTED_MODULE_4__["mapState"])({
     banners: function banners(state) {
       return state.home.banners;
     },
     bannerShow: function bannerShow(state) {
       return state.home.banner;
+    },
+    category: function category(state) {
+      return state.home.category;
+    },
+    free_course: function free_course(state) {
+      return state.home.free_course;
+    },
+    teachers: function teachers(state) {
+      return state.home.teachers;
+    },
+    site: function site(state) {
+      return state.home.site;
+    },
+    site_info: function site_info(state) {
+      return state.home.site_info;
     }
   })),
   mounted: function mounted() {
@@ -1580,21 +1623,21 @@ function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { va
     }
 
     function dynamicNum(dom) {
-      if (jquery__WEBPACK_IMPORTED_MODULE_1___default()(dom).hasClass("animated") || jquery__WEBPACK_IMPORTED_MODULE_1___default()(window).width() <= 767) {
+      if (jquery__WEBPACK_IMPORTED_MODULE_3___default()(dom).hasClass("animated") || jquery__WEBPACK_IMPORTED_MODULE_3___default()(window).width() <= 767) {
         dom.find(".item").each(function (i, e) {
-          if (!jquery__WEBPACK_IMPORTED_MODULE_1___default()(e).hasClass("active")) {
-            jquery__WEBPACK_IMPORTED_MODULE_1___default()(this).addClass("active");
+          if (!jquery__WEBPACK_IMPORTED_MODULE_3___default()(e).hasClass("active")) {
+            jquery__WEBPACK_IMPORTED_MODULE_3___default()(this).addClass("active");
             var count = 0;
-            var result = jquery__WEBPACK_IMPORTED_MODULE_1___default()(e).find(".num span").attr("data-num");
+            var result = jquery__WEBPACK_IMPORTED_MODULE_3___default()(e).find(".num span").attr("data-num");
             var pre = result / 60;
             var number = 0;
             var setDynamic = setInterval(function () {
               number += pre;
               count++;
-              jquery__WEBPACK_IMPORTED_MODULE_1___default()(e).find(".num span").text(parseInt(number));
+              jquery__WEBPACK_IMPORTED_MODULE_3___default()(e).find(".num span").text(parseInt(number));
 
               if (count >= 60) {
-                jquery__WEBPACK_IMPORTED_MODULE_1___default()(e).find(".num span").text(result);
+                jquery__WEBPACK_IMPORTED_MODULE_3___default()(e).find(".num span").text(result);
                 clearInterval(setDynamic);
               }
             }, 20);
@@ -1604,67 +1647,13 @@ function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { va
     }
 
     setTimeout(function () {
-      if (_this.$route.query.aurl) {
-        var top = jquery__WEBPACK_IMPORTED_MODULE_1___default()("#" + _this.$route.query.aurl).offset().top;
-        jquery__WEBPACK_IMPORTED_MODULE_1___default()("html,body").animate({
-          scrollTop: top
-        }, 500);
-      }
-    }, 200);
-    this.get("home/category", false).then(function (res) {
-      _this.category = res.data;
-      setTimeout(function () {
-        if (_this.$route.query.aurl) {
-          var top = jquery__WEBPACK_IMPORTED_MODULE_1___default()("#" + _this.$route.query.aurl).offset().top;
-          jquery__WEBPACK_IMPORTED_MODULE_1___default()("html,body").animate({
-            scrollTop: top
-          }, 500);
-        }
-      }, 200);
-    });
-    this.get("home/free_course", false).then(function (res) {
-      _this.free_course = res.data;
-      setTimeout(function () {
-        if (_this.$route.query.aurl) {
-          var top = jquery__WEBPACK_IMPORTED_MODULE_1___default()("#" + _this.$route.query.aurl).offset().top;
-          jquery__WEBPACK_IMPORTED_MODULE_1___default()("html,body").animate({
-            scrollTop: top
-          }, 500);
-        }
-      }, 200);
-    });
-    this.get("teacher/list", false).then(function (res) {
-      _this.teachers = res.data;
-      _this.show = true;
-      setTimeout(function () {
-        if (_this.$route.query.aurl) {
-          var top = jquery__WEBPACK_IMPORTED_MODULE_1___default()("#" + _this.$route.query.aurl).offset().top;
-          jquery__WEBPACK_IMPORTED_MODULE_1___default()("html,body").animate({
-            scrollTop: top
-          }, 500);
-        }
-      }, 200);
-    });
-    this.get("site_info", false).then(function (res) {
-      _this.site = res.data;
-      _this.site_info = res.data.course;
-      setTimeout(function () {
-        jquery__WEBPACK_IMPORTED_MODULE_1___default()(window).scroll(function () {
-          dynamicNum(jquery__WEBPACK_IMPORTED_MODULE_1___default()(".section_3 .list_box"));
-        });
+      jquery__WEBPACK_IMPORTED_MODULE_3___default()(window).scroll(function () {
+        dynamicNum(jquery__WEBPACK_IMPORTED_MODULE_3___default()(".section_3 .list_box"));
+      });
 
-        if (_this.$route.query.aurl) {
-          var top = jquery__WEBPACK_IMPORTED_MODULE_1___default()("#" + _this.$route.query.aurl).offset().top;
-          jquery__WEBPACK_IMPORTED_MODULE_1___default()("html,body").animate({
-            scrollTop: top
-          }, 500);
-        }
-      }, 200);
-    });
-    setTimeout(function () {
       if (_this.$route.query.aurl) {
-        var top = jquery__WEBPACK_IMPORTED_MODULE_1___default()("#" + _this.$route.query.aurl).offset().top;
-        jquery__WEBPACK_IMPORTED_MODULE_1___default()("html,body").animate({
+        var top = jquery__WEBPACK_IMPORTED_MODULE_3___default()("#" + _this.$route.query.aurl).offset().top;
+        jquery__WEBPACK_IMPORTED_MODULE_3___default()("html,body").animate({
           scrollTop: top
         }, 500);
       }

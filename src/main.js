@@ -41,7 +41,6 @@ Vue.prototype.get = request.get
 Vue.config.productionTip = false
 
 createRouter().beforeEach((to, from, next) => {
-  console.log(to)
   if (to.name.includes('Details') || to.name.includes('Video')) {
     let token = localStorage.getItem('token')
     if (!token) {

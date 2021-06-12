@@ -12,35 +12,41 @@
           <div class="dividers">
             <router-link to="/">首页</router-link>
             <span class="arrow">></span>
-            <span>{{title}}</span>
+            <span>{{ title }}</span>
           </div>
         </div>
         <div class="sub_wrap">
           <ul class="sidebar">
             <li
               class="sidebar_item"
-              :class="navActive==index ? 'active' : ''"
+              :class="navActive == index ? 'active' : ''"
               v-for="(item, index) in navList"
               :key="item.id"
-              @click="navchange(item,index)"
+              @click="navchange(item, index)"
             >
               <button class="sidebar_link">{{ item.title }}</button>
             </li>
           </ul>
           <div class="aboutus">
-            <ul class="aboutus_tabbar" v-if="navActive==5">
-                <li class="aboutus_tabbar_item" :class="tabbarActive==index ? 'active' : ''" v-for="(item,index) in tabbarList" :key="item.id" @click="tabbarChange(item,index)">
-                    <button class="aboutus_tabbar_link">{{item.name}}</button>
-                </li>
+            <ul class="aboutus_tabbar" v-if="navActive == 5">
+              <li
+                class="aboutus_tabbar_item"
+                :class="tabbarActive == index ? 'active' : ''"
+                v-for="(item, index) in tabbarList"
+                :key="item.id"
+                @click="tabbarChange(item, index)"
+              >
+                <button class="aboutus_tabbar_link">{{ item.name }}</button>
+              </li>
             </ul>
             <div class="breadcrumb">
               <div class="aboutus_title">
-                <h5>{{navName}}</h5>
+                <h5>{{ title }}</h5>
               </div>
             </div>
             <div class="aboutus_text">
               <!-- <h4 class="aboutus_text_title">{{list.title}}</h4> -->
-                <p v-html="list.content"></p>
+              <p v-html="list.content"></p>
             </div>
           </div>
         </div>
@@ -51,74 +57,51 @@
 </template>
 
 <script>
+import { mapState } from "vuex";
+
 export default {
   name: "about",
+  asyncData: ({ store }) => {
+    return store.dispatch("learn/getData");
+  },
   data() {
     return {
-      title:'',
-      navName:'',
-      navActive:0,
-      tabbarActive:0,
-      navList: [],
-      tabbarList: [],
-      list:{}
+      navActive: 0,
+      tabbarActive: 0,
     };
   },
-  mounted(){
-    document.title='北京中盛润德-了解考研'
-    this.get('postgraduate/category',true).then((res) => {
-      this.tabbarList = res.data
-      let category_id = res.data[0].id
-      this.get('postgraduate/list',false,{category_id}).then((res) => {
-        this.navList = res.data
-        this.navName = res.data[0].title
-      this.title = res.data[0].title
-
-        let postgraduate_id = res.data[0].id
-        
-        this.get('postgraduate/detail',false,{postgraduate_id}).then((res) => {
-          this.list = res.data
-        })
-      })
-    })    
+  computed: {
+    ...mapState({
+      tabbarList: (state) => state.learn.tabbarList,
+      navList: (state) => state.learn.navList,
+      title: (state) => state.learn.title,
+      list: (state) => state.learn.list,
+    }),
   },
-  methods:{
-    navchange(item,index){
-        this.navActive = index
-        this.navName = item.title
-        this.tabbarActive=0
-         this.title=item.title
-        let data={
-          postgraduate_id:item.id 
-        }
-        if(item.id==6){
-            data.category_id=this.tabbarList[0].id
-        }
-        this.get('postgraduate/detail',true,data).then((res) => {
-        
-          this.list = res.data
-        })
+  mounted() {
+    document.title = "北京中盛润德-了解考研";
+    this.$store.dispatch("learn/getData");
+  },
+  methods: {
+    navchange(item, index) {
+      this.navActive = index;
+      this.tabbarActive = 0;
+      let data = {
+        postgraduate_id: item.id,
+      };
+      item.id == 6&&(data.category_id = this.tabbarList[0].id)
+      this.$store.commit('learn/getList',{title:item.title})
+      this.$store.dispatch("learn/getList", data);
     },
-    tabbarChange(item,index){
-      console.log(item)
-      this.tabbarActive = index
-         this.get('postgraduate/detail',false,{
-           postgraduate_id:6,
-           category_id:item.id
-           }).then((res) => {
-          this.list = res.data
-        })
-      // this.get('postgraduate/list',true,{category_id:item.id}).then((res) => {
-      //   this.navList = res.data
-      //   // this.navName = res.data[0].title
-      //   let postgraduate_id = res.data[0].id
-     
-      // })
-    }
-  }
+    tabbarChange(item, index) {
+      this.tabbarActive = index;
+      this.$store.dispatch("learn/getList", {
+        postgraduate_id: 6,
+        category_id: item.id,
+      });
+    },
+  },
 };
 </script>
 
-<style>
-
-</style>
+<style></style>
