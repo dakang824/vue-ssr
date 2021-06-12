@@ -1,37 +1,33 @@
 <template>
   <div class="movie-list">
     <div v-for="(item, index) in list" class="movie">
-      <img class="cover" :src="item.cover">
+      <img class="cover" :src="item.cover" />
       <p>
-        <span class="title">{{item.title}}</span>
-        <span class="rate">{{item.rate}}</span>
+        <span class="title">{{ item.title }}</span>
+        <span class="rate">{{ item.rate }}</span>
       </p>
     </div>
   </div>
 </template>
 
 <script>
+import { mapState } from 'vuex'
 export default {
   name: 'MovieList',
-  asyncData ({ store }) {
-    return store.dispatch('getTopList')
+  asyncData({ store }) {
+    return store.dispatch('home/getTopList')
   },
   computed: {
-    list () {
-      return this.$store.state.topList
-    }
+    ...mapState({
+      list: (state) => state.home.topList,
+    }),
   },
-  created () {
-    if(!this.$store.state.topList){
-      this.$store.dispatch('getTopList')
-    }
-  }
 }
 </script>
 <style scoped lang="less">
-.movie-list{
+.movie-list {
   width: 700px;
-  .movie{
+  .movie {
     height: 240px;
     width: 120px;
     display: flex;
@@ -40,14 +36,14 @@ export default {
     float: left;
     font-size: 12px;
     margin-right: 15px;
-    .cover{
+    .cover {
       width: 120px;
       height: 180px;
     }
-    .title{
+    .title {
       color: #37a;
     }
-    .rate{
+    .rate {
       color: #e09015;
     }
   }

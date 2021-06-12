@@ -1,12 +1,12 @@
 exports.ids = [2];
 exports.modules = {
 
-/***/ 72:
+/***/ 73:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _About_vue_vue_type_template_id_039c5b43___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(73);
+/* harmony import */ var _About_vue_vue_type_template_id_039c5b43___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(74);
 /* harmony import */ var _node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(12);
 
 var script = {}
@@ -21,7 +21,7 @@ var component = Object(_node_modules_vue_loader_lib_runtime_componentNormalizer_
   false,
   null,
   null,
-  "59ab45db"
+  "6472492a"
   
 )
 
@@ -30,12 +30,12 @@ component.options.__file = "src/views/About.vue"
 
 /***/ }),
 
-/***/ 73:
+/***/ 74:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_About_vue_vue_type_template_id_039c5b43___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(74);
+/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_About_vue_vue_type_template_id_039c5b43___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(75);
 /* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "render", function() { return _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_About_vue_vue_type_template_id_039c5b43___WEBPACK_IMPORTED_MODULE_0__["render"]; });
 
 /* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "staticRenderFns", function() { return _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_About_vue_vue_type_template_id_039c5b43___WEBPACK_IMPORTED_MODULE_0__["staticRenderFns"]; });
@@ -44,7 +44,7 @@ __webpack_require__.r(__webpack_exports__);
 
 /***/ }),
 
-/***/ 74:
+/***/ 75:
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";

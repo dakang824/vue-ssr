@@ -1,27 +1,21 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
-import { top20 } from '../api'
 
-Vue.use(Vuex)
+import Vue from "vue";
+import Vuex from "vuex";
+
+Vue.use(Vuex);
+const files = require.context("./modules", false, /\.js$/);
+const modules = {};
+
+files.keys().forEach((key) => {
+  modules[key.replace(/(\.\/|\.js)/g, "")] = files(key).default;
+});
+Object.keys(modules).forEach((key) => {
+  modules[key]["namespaced"] = true;
+});
 
 export function createStore () {
   const store = new Vuex.Store({
-    state: {
-      topList: null
-    },
-    mutations: {
-      setTopList (state, list) {
-        state.topList = list
-      }
-    },
-    actions: {
-      getTopList (store) {
-        return top20().then((res) => {
-          store.commit('setTopList', res.data.subjects)
-        })
-      }
-    }
-  })
+    modules,
+  });
   return store
 }
-

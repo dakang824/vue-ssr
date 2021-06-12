@@ -201,8 +201,8 @@ function createApp() {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /*!
- * Vue.js v2.6.11
- * (c) 2014-2019 Evan You
+ * Vue.js v2.6.14
+ * (c) 2014-2021 Evan You
  * Released under the MIT License.
  */
 /*  */
@@ -1895,13 +1895,14 @@ function assertProp (
       type = [type];
     }
     for (var i = 0; i < type.length && !valid; i++) {
-      var assertedType = assertType(value, type[i]);
+      var assertedType = assertType(value, type[i], vm);
       expectedTypes.push(assertedType.expectedType || '');
       valid = assertedType.valid;
     }
   }
 
-  if (!valid) {
+  var haveExpectedTypes = expectedTypes.some(function (t) { return t; });
+  if (!valid && haveExpectedTypes) {
     warn(
       getInvalidTypeMessage(name, value, expectedTypes),
       vm
@@ -1919,9 +1920,9 @@ function assertProp (
   }
 }
 
-var simpleCheckRE = /^(String|Number|Boolean|Function|Symbol)$/;
+var simpleCheckRE = /^(String|Number|Boolean|Function|Symbol|BigInt)$/;
 
-function assertType (value, type) {
+function assertType (value, type, vm) {
   var valid;
   var expectedType = getType(type);
   if (simpleCheckRE.test(expectedType)) {
@@ -1936,7 +1937,12 @@ function assertType (value, type) {
   } else if (expectedType === 'Array') {
     valid = Array.isArray(value);
   } else {
-    valid = value instanceof type;
+    try {
+      valid = value instanceof type;
+    } catch (e) {
+      warn('Invalid prop type: "' + String(type) + '" is not a constructor', vm);
+      valid = false;
+    }
   }
   return {
     valid: valid,
@@ -1944,13 +1950,15 @@ function assertType (value, type) {
   }
 }
 
+var functionTypeCheckRE = /^\s*function (\w+)/;
+
 /**
  * Use function string name to check built-in types,
  * because a simple equality check will fail when running
  * across different vms / iframes.
  */
 function getType (fn) {
-  var match = fn && fn.toString().match(/^\s*function (\w+)/);
+  var match = fn && fn.toString().match(functionTypeCheckRE);
   return match ? match[1] : ''
 }
 
@@ -1975,18 +1983,19 @@ function getInvalidTypeMessage (name, value, expectedTypes) {
     " Expected " + (expectedTypes.map(capitalize).join(', '));
   var expectedType = expectedTypes[0];
   var receivedType = toRawType(value);
-  var expectedValue = styleValue(value, expectedType);
-  var receivedValue = styleValue(value, receivedType);
   // check if we need to specify expected value
-  if (expectedTypes.length === 1 &&
-      isExplicable(expectedType) &&
-      !isBoolean(expectedType, receivedType)) {
-    message += " with value " + expectedValue;
+  if (
+    expectedTypes.length === 1 &&
+    isExplicable(expectedType) &&
+    isExplicable(typeof value) &&
+    !isBoolean(expectedType, receivedType)
+  ) {
+    message += " with value " + (styleValue(value, expectedType));
   }
   message += ", got " + receivedType + " ";
   // check if we need to specify received value
   if (isExplicable(receivedType)) {
-    message += "with value " + receivedValue + ".";
+    message += "with value " + (styleValue(value, receivedType)) + ".";
   }
   return message
 }
@@ -2001,9 +2010,9 @@ function styleValue (value, type) {
   }
 }
 
+var EXPLICABLE_TYPES = ['string', 'number', 'boolean'];
 function isExplicable (value) {
-  var explicitTypes = ['string', 'number', 'boolean'];
-  return explicitTypes.some(function (elem) { return value.toLowerCase() === elem; })
+  return EXPLICABLE_TYPES.some(function (elem) { return value.toLowerCase() === elem; })
 }
 
 function isBoolean () {
@@ -2207,7 +2216,7 @@ if (true) {
   var allowedGlobals = makeMap(
     'Infinity,undefined,NaN,isFinite,isNaN,' +
     'parseFloat,parseInt,decodeURI,decodeURIComponent,encodeURI,encodeURIComponent,' +
-    'Math,Number,Date,Array,Object,Boolean,String,RegExp,Map,Set,JSON,Intl,' +
+    'Math,Number,Date,Array,Object,Boolean,String,RegExp,Map,Set,JSON,Intl,BigInt,' +
     'require' // for Webpack/Browserify
   );
 
@@ -2733,6 +2742,12 @@ function isWhitespace (node) {
 
 /*  */
 
+function isAsyncPlaceholder (node) {
+  return node.isComment && node.asyncFactory
+}
+
+/*  */
+
 function normalizeScopedSlots (
   slots,
   normalSlots,
@@ -2789,9 +2804,10 @@ function normalizeScopedSlot(normalSlots, key, fn) {
     res = res && typeof res === 'object' && !Array.isArray(res)
       ? [res] // single vnode
       : normalizeChildren(res);
+    var vnode = res && res[0];
     return res && (
-      res.length === 0 ||
-      (res.length === 1 && res[0].isComment) // #9658
+      !vnode ||
+      (res.length === 1 && vnode.isComment && !isAsyncPlaceholder(vnode)) // #9658, #10391
     ) ? undefined
       : res
   };
@@ -2864,26 +2880,28 @@ function renderList (
  */
 function renderSlot (
   name,
-  fallback,
+  fallbackRender,
   props,
   bindObject
 ) {
   var scopedSlotFn = this.$scopedSlots[name];
   var nodes;
-  if (scopedSlotFn) { // scoped slot
+  if (scopedSlotFn) {
+    // scoped slot
     props = props || {};
     if (bindObject) {
       if ( true && !isObject(bindObject)) {
-        warn(
-          'slot v-bind without argument expects an Object',
-          this
-        );
+        warn('slot v-bind without argument expects an Object', this);
       }
       props = extend(extend({}, bindObject), props);
     }
-    nodes = scopedSlotFn(props) || fallback;
+    nodes =
+      scopedSlotFn(props) ||
+      (typeof fallbackRender === 'function' ? fallbackRender() : fallbackRender);
   } else {
-    nodes = this.$slots[name] || fallback;
+    nodes =
+      this.$slots[name] ||
+      (typeof fallbackRender === 'function' ? fallbackRender() : fallbackRender);
   }
 
   var target = props && props.slot;
@@ -2933,6 +2951,7 @@ function checkKeyCodes (
   } else if (eventKeyName) {
     return hyphenate(eventKeyName) !== key
   }
+  return eventKeyCode === undefined
 }
 
 /*  */
@@ -3464,8 +3483,10 @@ function createComponent (
 }
 
 function createComponentInstanceForVnode (
-  vnode, // we know it's MountedComponentVNode but flow doesn't
-  parent // activeInstance in lifecycle state
+  // we know it's MountedComponentVNode but flow doesn't
+  vnode,
+  // activeInstance in lifecycle state
+  parent
 ) {
   var options = {
     _isComponent: true,
@@ -3605,7 +3626,7 @@ function _createElement (
     ns = (context.$vnode && context.$vnode.ns) || config.getTagNamespace(tag);
     if (config.isReservedTag(tag)) {
       // platform built-in elements
-      if ( true && isDef(data) && isDef(data.nativeOn)) {
+      if ( true && isDef(data) && isDef(data.nativeOn) && data.tag !== 'component') {
         warn(
           ("The .native modifier for v-on is only valid on components but it was used on <" + tag + ">."),
           context
@@ -3929,12 +3950,6 @@ function resolveAsyncComponent (
       ? factory.loadingComp
       : factory.resolved
   }
-}
-
-/*  */
-
-function isAsyncPlaceholder (node) {
-  return node.isComment && node.asyncFactory
 }
 
 /*  */
@@ -4305,7 +4320,8 @@ function updateChildComponent (
   var hasDynamicScopedSlot = !!(
     (newScopedSlots && !newScopedSlots.$stable) ||
     (oldScopedSlots !== emptyObject && !oldScopedSlots.$stable) ||
-    (newScopedSlots && vm.$scopedSlots.$key !== newScopedSlots.$key)
+    (newScopedSlots && vm.$scopedSlots.$key !== newScopedSlots.$key) ||
+    (!newScopedSlots && vm.$scopedSlots.$key)
   );
 
   // Any static slot children from the parent may have changed during parent's
@@ -4759,11 +4775,8 @@ Watcher.prototype.run = function run () {
       var oldValue = this.value;
       this.value = value;
       if (this.user) {
-        try {
-          this.cb.call(this.vm, value, oldValue);
-        } catch (e) {
-          handleError(e, this.vm, ("callback for watcher \"" + (this.expression) + "\""));
-        }
+        var info = "callback for watcher \"" + (this.expression) + "\"";
+        invokeWithErrorHandling(this.cb, this.vm, [value, oldValue], this.vm, info);
       } else {
         this.cb.call(this.vm, value, oldValue);
       }
@@ -4985,6 +4998,8 @@ function initComputed (vm, computed) {
         warn(("The computed property \"" + key + "\" is already defined in data."), vm);
       } else if (vm.$options.props && key in vm.$options.props) {
         warn(("The computed property \"" + key + "\" is already defined as a prop."), vm);
+      } else if (vm.$options.methods && key in vm.$options.methods) {
+        warn(("The computed property \"" + key + "\" is already defined as a method."), vm);
       }
     }
   }
@@ -5138,11 +5153,10 @@ function stateMixin (Vue) {
     options.user = true;
     var watcher = new Watcher(vm, expOrFn, cb, options);
     if (options.immediate) {
-      try {
-        cb.call(vm, watcher.value);
-      } catch (error) {
-        handleError(error, vm, ("callback for immediate watcher \"" + (watcher.expression) + "\""));
-      }
+      var info = "callback for immediate watcher \"" + (watcher.expression) + "\"";
+      pushTarget();
+      invokeWithErrorHandling(cb, vm, [watcher.value], vm, info);
+      popTarget();
     }
     return function unwatchFn () {
       watcher.teardown();
@@ -5441,6 +5455,8 @@ function initAssetRegisters (Vue) {
 
 
 
+
+
 function getComponentName (opts) {
   return opts && (opts.Ctor.options.name || opts.tag)
 }
@@ -5462,9 +5478,9 @@ function pruneCache (keepAliveInstance, filter) {
   var keys = keepAliveInstance.keys;
   var _vnode = keepAliveInstance._vnode;
   for (var key in cache) {
-    var cachedNode = cache[key];
-    if (cachedNode) {
-      var name = getComponentName(cachedNode.componentOptions);
+    var entry = cache[key];
+    if (entry) {
+      var name = entry.name;
       if (name && !filter(name)) {
         pruneCacheEntry(cache, key, keys, _vnode);
       }
@@ -5478,9 +5494,9 @@ function pruneCacheEntry (
   keys,
   current
 ) {
-  var cached$$1 = cache[key];
-  if (cached$$1 && (!current || cached$$1.tag !== current.tag)) {
-    cached$$1.componentInstance.$destroy();
+  var entry = cache[key];
+  if (entry && (!current || entry.tag !== current.tag)) {
+    entry.componentInstance.$destroy();
   }
   cache[key] = null;
   remove(keys, key);
@@ -5498,6 +5514,32 @@ var KeepAlive = {
     max: [String, Number]
   },
 
+  methods: {
+    cacheVNode: function cacheVNode() {
+      var ref = this;
+      var cache = ref.cache;
+      var keys = ref.keys;
+      var vnodeToCache = ref.vnodeToCache;
+      var keyToCache = ref.keyToCache;
+      if (vnodeToCache) {
+        var tag = vnodeToCache.tag;
+        var componentInstance = vnodeToCache.componentInstance;
+        var componentOptions = vnodeToCache.componentOptions;
+        cache[keyToCache] = {
+          name: getComponentName(componentOptions),
+          tag: tag,
+          componentInstance: componentInstance,
+        };
+        keys.push(keyToCache);
+        // prune oldest entry
+        if (this.max && keys.length > parseInt(this.max)) {
+          pruneCacheEntry(cache, keys[0], keys, this._vnode);
+        }
+        this.vnodeToCache = null;
+      }
+    }
+  },
+
   created: function created () {
     this.cache = Object.create(null);
     this.keys = [];
@@ -5512,12 +5554,17 @@ var KeepAlive = {
   mounted: function mounted () {
     var this$1 = this;
 
+    this.cacheVNode();
     this.$watch('include', function (val) {
       pruneCache(this$1, function (name) { return matches(val, name); });
     });
     this.$watch('exclude', function (val) {
       pruneCache(this$1, function (name) { return !matches(val, name); });
     });
+  },
+
+  updated: function updated () {
+    this.cacheVNode();
   },
 
   render: function render () {
@@ -5553,12 +5600,9 @@ var KeepAlive = {
         remove(keys, key);
         keys.push(key);
       } else {
-        cache[key] = vnode;
-        keys.push(key);
-        // prune oldest entry
-        if (this.max && keys.length > parseInt(this.max)) {
-          pruneCacheEntry(cache, keys[0], keys, this._vnode);
-        }
+        // delay setting the cache until update
+        this.vnodeToCache = vnode;
+        this.keyToCache = key;
       }
 
       vnode.data.keepAlive = true;
@@ -5641,7 +5685,7 @@ Object.defineProperty(Vue, 'FunctionalRenderContext', {
   value: FunctionalRenderContext
 });
 
-Vue.version = '2.6.11';
+Vue.version = '2.6.14';
 
 /*  */
 
@@ -5678,7 +5722,7 @@ var isBooleanAttr = makeMap(
   'default,defaultchecked,defaultmuted,defaultselected,defer,disabled,' +
   'enabled,formnovalidate,hidden,indeterminate,inert,ismap,itemscope,loop,multiple,' +
   'muted,nohref,noresize,noshade,novalidate,nowrap,open,pauseonexit,readonly,' +
-  'required,reversed,scoped,seamless,selected,sortable,translate,' +
+  'required,reversed,scoped,seamless,selected,sortable,' +
   'truespeed,typemustmatch,visible'
 );
 
@@ -5802,7 +5846,7 @@ var isHTMLTag = makeMap(
 // contain child elements.
 var isSVG = makeMap(
   'svg,animate,circle,clippath,cursor,defs,desc,ellipse,filter,font-face,' +
-  'foreignObject,g,glyph,image,line,marker,mask,missing-glyph,path,pattern,' +
+  'foreignobject,g,glyph,image,line,marker,mask,missing-glyph,path,pattern,' +
   'polygon,polyline,rect,switch,symbol,text,textpath,tspan,use,view',
   true
 );
@@ -6005,7 +6049,8 @@ var hooks = ['create', 'activate', 'update', 'remove', 'destroy'];
 
 function sameVnode (a, b) {
   return (
-    a.key === b.key && (
+    a.key === b.key &&
+    a.asyncFactory === b.asyncFactory && (
       (
         a.tag === b.tag &&
         a.isComment === b.isComment &&
@@ -6013,7 +6058,6 @@ function sameVnode (a, b) {
         sameInputType(a, b)
       ) || (
         isTrue(a.isAsyncPlaceholder) &&
-        a.asyncFactory === b.asyncFactory &&
         isUndef(b.asyncFactory.error)
       )
     )
@@ -6903,7 +6947,7 @@ function updateAttrs (oldVnode, vnode) {
     cur = attrs[key];
     old = oldAttrs[key];
     if (old !== cur) {
-      setAttr(elm, key, cur);
+      setAttr(elm, key, cur, vnode.data.pre);
     }
   }
   // #4391: in IE9, setting type can reset value for input[type=radio]
@@ -6923,8 +6967,8 @@ function updateAttrs (oldVnode, vnode) {
   }
 }
 
-function setAttr (el, key, value) {
-  if (el.tagName.indexOf('-') > -1) {
+function setAttr (el, key, value, isInPre) {
+  if (isInPre || el.tagName.indexOf('-') > -1) {
     baseSetAttr(el, key, value);
   } else if (isBooleanAttr(key)) {
     // set attribute for blank value
@@ -7210,7 +7254,7 @@ function updateDOMProps (oldVnode, vnode) {
       // skip the update if old and new VDOM state is the same.
       // `value` is handled separately because the DOM value may be temporarily
       // out of sync with VDOM state due to focus, composition and modifiers.
-      // This  #4521 by skipping the unnecesarry `checked` update.
+      // This  #4521 by skipping the unnecessary `checked` update.
       cur !== oldProps[key]
     ) {
       // some property updates can throw
@@ -8666,7 +8710,7 @@ var component = Object(_node_modules_vue_loader_lib_runtime_componentNormalizer_
   false,
   injectStyles,
   null,
-  "f487c346"
+  "614e43ed"
   
 )
 
@@ -9089,13 +9133,13 @@ var routes = [{
   path: '/',
   name: 'Home',
   component: function component() {
-    return __webpack_require__.e(/* import() */ 1).then(__webpack_require__.bind(null, 64));
+    return __webpack_require__.e(/* import() */ 1).then(__webpack_require__.bind(null, 65));
   }
 }, {
   path: '/about',
   name: 'About',
   component: function component() {
-    return __webpack_require__.e(/* import() */ 2).then(__webpack_require__.bind(null, 72));
+    return __webpack_require__.e(/* import() */ 2).then(__webpack_require__.bind(null, 73));
   }
 }];
 function createRouter() {
@@ -9112,8 +9156,8 @@ function createRouter() {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /*!
-  * vue-router v3.2.0
-  * (c) 2020 Evan You
+  * vue-router v3.5.1
+  * (c) 2021 Evan You
   * @license MIT
   */
 /*  */
@@ -9130,23 +9174,280 @@ function warn (condition, message) {
   }
 }
 
-function isError (err) {
-  return Object.prototype.toString.call(err).indexOf('Error') > -1
-}
-
-function isExtendedError (constructor, err) {
-  return (
-    err instanceof constructor ||
-    // _name is to support IE9 too
-    (err && (err.name === constructor.name || err._name === constructor._name))
-  )
-}
-
 function extend (a, b) {
   for (var key in b) {
     a[key] = b[key];
   }
   return a
+}
+
+/*  */
+
+var encodeReserveRE = /[!'()*]/g;
+var encodeReserveReplacer = function (c) { return '%' + c.charCodeAt(0).toString(16); };
+var commaRE = /%2C/g;
+
+// fixed encodeURIComponent which is more conformant to RFC3986:
+// - escapes [!'()*]
+// - preserve commas
+var encode = function (str) { return encodeURIComponent(str)
+    .replace(encodeReserveRE, encodeReserveReplacer)
+    .replace(commaRE, ','); };
+
+function decode (str) {
+  try {
+    return decodeURIComponent(str)
+  } catch (err) {
+    if (true) {
+      warn(false, ("Error decoding \"" + str + "\". Leaving it intact."));
+    }
+  }
+  return str
+}
+
+function resolveQuery (
+  query,
+  extraQuery,
+  _parseQuery
+) {
+  if ( extraQuery === void 0 ) extraQuery = {};
+
+  var parse = _parseQuery || parseQuery;
+  var parsedQuery;
+  try {
+    parsedQuery = parse(query || '');
+  } catch (e) {
+     true && warn(false, e.message);
+    parsedQuery = {};
+  }
+  for (var key in extraQuery) {
+    var value = extraQuery[key];
+    parsedQuery[key] = Array.isArray(value)
+      ? value.map(castQueryParamValue)
+      : castQueryParamValue(value);
+  }
+  return parsedQuery
+}
+
+var castQueryParamValue = function (value) { return (value == null || typeof value === 'object' ? value : String(value)); };
+
+function parseQuery (query) {
+  var res = {};
+
+  query = query.trim().replace(/^(\?|#|&)/, '');
+
+  if (!query) {
+    return res
+  }
+
+  query.split('&').forEach(function (param) {
+    var parts = param.replace(/\+/g, ' ').split('=');
+    var key = decode(parts.shift());
+    var val = parts.length > 0 ? decode(parts.join('=')) : null;
+
+    if (res[key] === undefined) {
+      res[key] = val;
+    } else if (Array.isArray(res[key])) {
+      res[key].push(val);
+    } else {
+      res[key] = [res[key], val];
+    }
+  });
+
+  return res
+}
+
+function stringifyQuery (obj) {
+  var res = obj
+    ? Object.keys(obj)
+      .map(function (key) {
+        var val = obj[key];
+
+        if (val === undefined) {
+          return ''
+        }
+
+        if (val === null) {
+          return encode(key)
+        }
+
+        if (Array.isArray(val)) {
+          var result = [];
+          val.forEach(function (val2) {
+            if (val2 === undefined) {
+              return
+            }
+            if (val2 === null) {
+              result.push(encode(key));
+            } else {
+              result.push(encode(key) + '=' + encode(val2));
+            }
+          });
+          return result.join('&')
+        }
+
+        return encode(key) + '=' + encode(val)
+      })
+      .filter(function (x) { return x.length > 0; })
+      .join('&')
+    : null;
+  return res ? ("?" + res) : ''
+}
+
+/*  */
+
+var trailingSlashRE = /\/?$/;
+
+function createRoute (
+  record,
+  location,
+  redirectedFrom,
+  router
+) {
+  var stringifyQuery = router && router.options.stringifyQuery;
+
+  var query = location.query || {};
+  try {
+    query = clone(query);
+  } catch (e) {}
+
+  var route = {
+    name: location.name || (record && record.name),
+    meta: (record && record.meta) || {},
+    path: location.path || '/',
+    hash: location.hash || '',
+    query: query,
+    params: location.params || {},
+    fullPath: getFullPath(location, stringifyQuery),
+    matched: record ? formatMatch(record) : []
+  };
+  if (redirectedFrom) {
+    route.redirectedFrom = getFullPath(redirectedFrom, stringifyQuery);
+  }
+  return Object.freeze(route)
+}
+
+function clone (value) {
+  if (Array.isArray(value)) {
+    return value.map(clone)
+  } else if (value && typeof value === 'object') {
+    var res = {};
+    for (var key in value) {
+      res[key] = clone(value[key]);
+    }
+    return res
+  } else {
+    return value
+  }
+}
+
+// the starting route that represents the initial state
+var START = createRoute(null, {
+  path: '/'
+});
+
+function formatMatch (record) {
+  var res = [];
+  while (record) {
+    res.unshift(record);
+    record = record.parent;
+  }
+  return res
+}
+
+function getFullPath (
+  ref,
+  _stringifyQuery
+) {
+  var path = ref.path;
+  var query = ref.query; if ( query === void 0 ) query = {};
+  var hash = ref.hash; if ( hash === void 0 ) hash = '';
+
+  var stringify = _stringifyQuery || stringifyQuery;
+  return (path || '/') + stringify(query) + hash
+}
+
+function isSameRoute (a, b, onlyPath) {
+  if (b === START) {
+    return a === b
+  } else if (!b) {
+    return false
+  } else if (a.path && b.path) {
+    return a.path.replace(trailingSlashRE, '') === b.path.replace(trailingSlashRE, '') && (onlyPath ||
+      a.hash === b.hash &&
+      isObjectEqual(a.query, b.query))
+  } else if (a.name && b.name) {
+    return (
+      a.name === b.name &&
+      (onlyPath || (
+        a.hash === b.hash &&
+      isObjectEqual(a.query, b.query) &&
+      isObjectEqual(a.params, b.params))
+      )
+    )
+  } else {
+    return false
+  }
+}
+
+function isObjectEqual (a, b) {
+  if ( a === void 0 ) a = {};
+  if ( b === void 0 ) b = {};
+
+  // handle null value #1566
+  if (!a || !b) { return a === b }
+  var aKeys = Object.keys(a).sort();
+  var bKeys = Object.keys(b).sort();
+  if (aKeys.length !== bKeys.length) {
+    return false
+  }
+  return aKeys.every(function (key, i) {
+    var aVal = a[key];
+    var bKey = bKeys[i];
+    if (bKey !== key) { return false }
+    var bVal = b[key];
+    // query values can be null and undefined
+    if (aVal == null || bVal == null) { return aVal === bVal }
+    // check nested equality
+    if (typeof aVal === 'object' && typeof bVal === 'object') {
+      return isObjectEqual(aVal, bVal)
+    }
+    return String(aVal) === String(bVal)
+  })
+}
+
+function isIncludedRoute (current, target) {
+  return (
+    current.path.replace(trailingSlashRE, '/').indexOf(
+      target.path.replace(trailingSlashRE, '/')
+    ) === 0 &&
+    (!target.hash || current.hash === target.hash) &&
+    queryIncludes(current.query, target.query)
+  )
+}
+
+function queryIncludes (current, target) {
+  for (var key in target) {
+    if (!(key in current)) {
+      return false
+    }
+  }
+  return true
+}
+
+function handleRouteEntered (route) {
+  for (var i = 0; i < route.matched.length; i++) {
+    var record = route.matched[i];
+    for (var name in record.instances) {
+      var instance = record.instances[name];
+      var cbs = record.enteredCbs[name];
+      if (!instance || !cbs) { continue }
+      delete record.enteredCbs[name];
+      for (var i$1 = 0; i$1 < cbs.length; i$1++) {
+        if (!instance._isBeingDestroyed) { cbs[i$1](instance); }
+      }
+    }
+  }
 }
 
 var View = {
@@ -9247,10 +9548,15 @@ var View = {
       ) {
         matched.instances[name] = vnode.componentInstance;
       }
+
+      // if the route transition has already been confirmed then we weren't
+      // able to call the cbs during confirmation as the component was not
+      // registered yet, so we call it here.
+      handleRouteEntered(route);
     };
 
     var configProps = matched.props && matched.props[name];
-    // save route and configProps in cachce
+    // save route and configProps in cache
     if (configProps) {
       extend(cache[name], {
         route: route,
@@ -9299,239 +9605,6 @@ function resolveProps (route, config) {
         );
       }
   }
-}
-
-/*  */
-
-var encodeReserveRE = /[!'()*]/g;
-var encodeReserveReplacer = function (c) { return '%' + c.charCodeAt(0).toString(16); };
-var commaRE = /%2C/g;
-
-// fixed encodeURIComponent which is more conformant to RFC3986:
-// - escapes [!'()*]
-// - preserve commas
-var encode = function (str) { return encodeURIComponent(str)
-  .replace(encodeReserveRE, encodeReserveReplacer)
-  .replace(commaRE, ','); };
-
-var decode = decodeURIComponent;
-
-function resolveQuery (
-  query,
-  extraQuery,
-  _parseQuery
-) {
-  if ( extraQuery === void 0 ) extraQuery = {};
-
-  var parse = _parseQuery || parseQuery;
-  var parsedQuery;
-  try {
-    parsedQuery = parse(query || '');
-  } catch (e) {
-     true && warn(false, e.message);
-    parsedQuery = {};
-  }
-  for (var key in extraQuery) {
-    parsedQuery[key] = extraQuery[key];
-  }
-  return parsedQuery
-}
-
-function parseQuery (query) {
-  var res = {};
-
-  query = query.trim().replace(/^(\?|#|&)/, '');
-
-  if (!query) {
-    return res
-  }
-
-  query.split('&').forEach(function (param) {
-    var parts = param.replace(/\+/g, ' ').split('=');
-    var key = decode(parts.shift());
-    var val = parts.length > 0
-      ? decode(parts.join('='))
-      : null;
-
-    if (res[key] === undefined) {
-      res[key] = val;
-    } else if (Array.isArray(res[key])) {
-      res[key].push(val);
-    } else {
-      res[key] = [res[key], val];
-    }
-  });
-
-  return res
-}
-
-function stringifyQuery (obj) {
-  var res = obj ? Object.keys(obj).map(function (key) {
-    var val = obj[key];
-
-    if (val === undefined) {
-      return ''
-    }
-
-    if (val === null) {
-      return encode(key)
-    }
-
-    if (Array.isArray(val)) {
-      var result = [];
-      val.forEach(function (val2) {
-        if (val2 === undefined) {
-          return
-        }
-        if (val2 === null) {
-          result.push(encode(key));
-        } else {
-          result.push(encode(key) + '=' + encode(val2));
-        }
-      });
-      return result.join('&')
-    }
-
-    return encode(key) + '=' + encode(val)
-  }).filter(function (x) { return x.length > 0; }).join('&') : null;
-  return res ? ("?" + res) : ''
-}
-
-/*  */
-
-var trailingSlashRE = /\/?$/;
-
-function createRoute (
-  record,
-  location,
-  redirectedFrom,
-  router
-) {
-  var stringifyQuery = router && router.options.stringifyQuery;
-
-  var query = location.query || {};
-  try {
-    query = clone(query);
-  } catch (e) {}
-
-  var route = {
-    name: location.name || (record && record.name),
-    meta: (record && record.meta) || {},
-    path: location.path || '/',
-    hash: location.hash || '',
-    query: query,
-    params: location.params || {},
-    fullPath: getFullPath(location, stringifyQuery),
-    matched: record ? formatMatch(record) : []
-  };
-  if (redirectedFrom) {
-    route.redirectedFrom = getFullPath(redirectedFrom, stringifyQuery);
-  }
-  return Object.freeze(route)
-}
-
-function clone (value) {
-  if (Array.isArray(value)) {
-    return value.map(clone)
-  } else if (value && typeof value === 'object') {
-    var res = {};
-    for (var key in value) {
-      res[key] = clone(value[key]);
-    }
-    return res
-  } else {
-    return value
-  }
-}
-
-// the starting route that represents the initial state
-var START = createRoute(null, {
-  path: '/'
-});
-
-function formatMatch (record) {
-  var res = [];
-  while (record) {
-    res.unshift(record);
-    record = record.parent;
-  }
-  return res
-}
-
-function getFullPath (
-  ref,
-  _stringifyQuery
-) {
-  var path = ref.path;
-  var query = ref.query; if ( query === void 0 ) query = {};
-  var hash = ref.hash; if ( hash === void 0 ) hash = '';
-
-  var stringify = _stringifyQuery || stringifyQuery;
-  return (path || '/') + stringify(query) + hash
-}
-
-function isSameRoute (a, b) {
-  if (b === START) {
-    return a === b
-  } else if (!b) {
-    return false
-  } else if (a.path && b.path) {
-    return (
-      a.path.replace(trailingSlashRE, '') === b.path.replace(trailingSlashRE, '') &&
-      a.hash === b.hash &&
-      isObjectEqual(a.query, b.query)
-    )
-  } else if (a.name && b.name) {
-    return (
-      a.name === b.name &&
-      a.hash === b.hash &&
-      isObjectEqual(a.query, b.query) &&
-      isObjectEqual(a.params, b.params)
-    )
-  } else {
-    return false
-  }
-}
-
-function isObjectEqual (a, b) {
-  if ( a === void 0 ) a = {};
-  if ( b === void 0 ) b = {};
-
-  // handle null value #1566
-  if (!a || !b) { return a === b }
-  var aKeys = Object.keys(a);
-  var bKeys = Object.keys(b);
-  if (aKeys.length !== bKeys.length) {
-    return false
-  }
-  return aKeys.every(function (key) {
-    var aVal = a[key];
-    var bVal = b[key];
-    // check nested equality
-    if (typeof aVal === 'object' && typeof bVal === 'object') {
-      return isObjectEqual(aVal, bVal)
-    }
-    return String(aVal) === String(bVal)
-  })
-}
-
-function isIncludedRoute (current, target) {
-  return (
-    current.path.replace(trailingSlashRE, '/').indexOf(
-      target.path.replace(trailingSlashRE, '/')
-    ) === 0 &&
-    (!target.hash || current.hash === target.hash) &&
-    queryIncludes(current.query, target.query)
-  )
-}
-
-function queryIncludes (current, target) {
-  for (var key in target) {
-    if (!(key in current)) {
-      return false
-    }
-  }
-  return true
 }
 
 /*  */
@@ -10142,6 +10215,10 @@ var eventTypes = [String, Array];
 
 var noop = function () {};
 
+var warnedCustomSlot;
+var warnedTagProp;
+var warnedEventProp;
+
 var Link = {
   name: 'RouterLink',
   props: {
@@ -10153,7 +10230,9 @@ var Link = {
       type: String,
       default: 'a'
     },
+    custom: Boolean,
     exact: Boolean,
+    exactPath: Boolean,
     append: Boolean,
     replace: Boolean,
     activeClass: String,
@@ -10202,8 +10281,8 @@ var Link = {
       ? createRoute(null, normalizeLocation(route.redirectedFrom), null, router)
       : route;
 
-    classes[exactActiveClass] = isSameRoute(current, compareTarget);
-    classes[activeClass] = this.exact
+    classes[exactActiveClass] = isSameRoute(current, compareTarget, this.exactPath);
+    classes[activeClass] = this.exact || this.exactPath
       ? classes[exactActiveClass]
       : isIncludedRoute(current, compareTarget);
 
@@ -10242,16 +10321,37 @@ var Link = {
       });
 
     if (scopedSlot) {
+      if ( true && !this.custom) {
+        !warnedCustomSlot && warn(false, 'In Vue Router 4, the v-slot API will by default wrap its content with an <a> element. Use the custom prop to remove this warning:\n<router-link v-slot="{ navigate, href }" custom></router-link>\n');
+        warnedCustomSlot = true;
+      }
       if (scopedSlot.length === 1) {
         return scopedSlot[0]
       } else if (scopedSlot.length > 1 || !scopedSlot.length) {
         if (true) {
           warn(
             false,
-            ("RouterLink with to=\"" + (this.to) + "\" is trying to use a scoped slot but it didn't provide exactly one child. Wrapping the content with a span element.")
+            ("<router-link> with to=\"" + (this.to) + "\" is trying to use a scoped slot but it didn't provide exactly one child. Wrapping the content with a span element.")
           );
         }
         return scopedSlot.length === 0 ? h() : h('span', {}, scopedSlot)
+      }
+    }
+
+    if (true) {
+      if ('tag' in this.$options.propsData && !warnedTagProp) {
+        warn(
+          false,
+          "<router-link>'s tag prop is deprecated and has been removed in Vue Router 4. Use the v-slot API to remove this warning: https://next.router.vuejs.org/guide/migration/#removal-of-event-and-tag-props-in-router-link."
+        );
+        warnedTagProp = true;
+      }
+      if ('event' in this.$options.propsData && !warnedEventProp) {
+        warn(
+          false,
+          "<router-link>'s event prop is deprecated and has been removed in Vue Router 4. Use the v-slot API to remove this warning: https://next.router.vuejs.org/guide/migration/#removal-of-event-and-tag-props-in-router-link."
+        );
+        warnedEventProp = true;
       }
     }
 
@@ -10390,7 +10490,8 @@ function createRouteMap (
   routes,
   oldPathList,
   oldPathMap,
-  oldNameMap
+  oldNameMap,
+  parentRoute
 ) {
   // the path list is used to control path matching priority
   var pathList = oldPathList || [];
@@ -10400,7 +10501,7 @@ function createRouteMap (
   var nameMap = oldNameMap || Object.create(null);
 
   routes.forEach(function (route) {
-    addRouteRecord(pathList, pathMap, nameMap, route);
+    addRouteRecord(pathList, pathMap, nameMap, route, parentRoute);
   });
 
   // ensure wildcard routes are always at the end
@@ -10439,6 +10540,14 @@ function addRouteRecord (
         path || name
       )) + " cannot be a " + "string id. Use an actual component instead."
     );
+
+    warn(
+      // eslint-disable-next-line no-control-regex
+      !/[^\u0000-\u007F]+/.test(path),
+      "Route with path \"" + path + "\" contains unencoded characters, make sure " +
+        "your path is correctly encoded before passing it to the router. Use " +
+        "encodeURI to encode static segments of your path."
+    );
   }
 
   var pathToRegexpOptions =
@@ -10453,7 +10562,13 @@ function addRouteRecord (
     path: normalizedPath,
     regex: compileRouteRegex(normalizedPath, pathToRegexpOptions),
     components: route.components || { default: route.component },
+    alias: route.alias
+      ? typeof route.alias === 'string'
+        ? [route.alias]
+        : route.alias
+      : [],
     instances: {},
+    enteredCbs: {},
     name: name,
     parent: parent,
     matchAs: matchAs,
@@ -10586,6 +10701,28 @@ function createMatcher (
 
   function addRoutes (routes) {
     createRouteMap(routes, pathList, pathMap, nameMap);
+  }
+
+  function addRoute (parentOrRoute, route) {
+    var parent = (typeof parentOrRoute !== 'object') ? nameMap[parentOrRoute] : undefined;
+    // $flow-disable-line
+    createRouteMap([route || parentOrRoute], pathList, pathMap, nameMap, parent);
+
+    // add aliases of parent
+    if (parent) {
+      createRouteMap(
+        // $flow-disable-line route is defined if parent is
+        parent.alias.map(function (alias) { return ({ path: alias, children: [route] }); }),
+        pathList,
+        pathMap,
+        nameMap,
+        parent
+      );
+    }
+  }
+
+  function getRoutes () {
+    return pathList.map(function (path) { return pathMap[path]; })
   }
 
   function match (
@@ -10734,6 +10871,8 @@ function createMatcher (
 
   return {
     match: match,
+    addRoute: addRoute,
+    getRoutes: getRoutes,
     addRoutes: addRoutes
   }
 }
@@ -10753,10 +10892,9 @@ function matchRoute (
 
   for (var i = 1, len = m.length; i < len; ++i) {
     var key = regex.keys[i - 1];
-    var val = typeof m[i] === 'string' ? decodeURIComponent(m[i]) : m[i];
     if (key) {
       // Fix #1994: using * with props: true generates a param named 0
-      params[key.name || 'pathMatch'] = val;
+      params[key.name || 'pathMatch'] = typeof m[i] === 'string' ? decode(m[i]) : m[i];
     }
   }
 
@@ -10809,12 +10947,10 @@ function setupScroll () {
   var stateCopy = extend({}, window.history.state);
   stateCopy.key = getStateKey();
   window.history.replaceState(stateCopy, '', absolutePath);
-  window.addEventListener('popstate', function (e) {
-    saveScrollPosition();
-    if (e.state && e.state.key) {
-      setStateKey(e.state.key);
-    }
-  });
+  window.addEventListener('popstate', handlePopState);
+  return function () {
+    window.removeEventListener('popstate', handlePopState);
+  }
 }
 
 function handleScroll (
@@ -10873,6 +11009,13 @@ function saveScrollPosition () {
       x: window.pageXOffset,
       y: window.pageYOffset
     };
+  }
+}
+
+function handlePopState (e) {
+  saveScrollPosition();
+  if (e.state && e.state.key) {
+    setStateKey(e.state.key);
   }
 }
 
@@ -10941,7 +11084,17 @@ function scrollToPosition (shouldScroll, position) {
   }
 
   if (position) {
-    window.scrollTo(position.x, position.y);
+    // $flow-disable-line
+    if ('scrollBehavior' in document.documentElement.style) {
+      window.scrollTo({
+        left: position.x,
+        top: position.y,
+        // $flow-disable-line
+        behavior: shouldScroll.behavior
+      });
+    } else {
+      window.scrollTo(position.x, position.y);
+    }
   }
 }
 
@@ -11004,6 +11157,89 @@ function runQueue (queue, fn, cb) {
     }
   };
   step(0);
+}
+
+// When changing thing, also edit router.d.ts
+var NavigationFailureType = {
+  redirected: 2,
+  aborted: 4,
+  cancelled: 8,
+  duplicated: 16
+};
+
+function createNavigationRedirectedError (from, to) {
+  return createRouterError(
+    from,
+    to,
+    NavigationFailureType.redirected,
+    ("Redirected when going from \"" + (from.fullPath) + "\" to \"" + (stringifyRoute(
+      to
+    )) + "\" via a navigation guard.")
+  )
+}
+
+function createNavigationDuplicatedError (from, to) {
+  var error = createRouterError(
+    from,
+    to,
+    NavigationFailureType.duplicated,
+    ("Avoided redundant navigation to current location: \"" + (from.fullPath) + "\".")
+  );
+  // backwards compatible with the first introduction of Errors
+  error.name = 'NavigationDuplicated';
+  return error
+}
+
+function createNavigationCancelledError (from, to) {
+  return createRouterError(
+    from,
+    to,
+    NavigationFailureType.cancelled,
+    ("Navigation cancelled from \"" + (from.fullPath) + "\" to \"" + (to.fullPath) + "\" with a new navigation.")
+  )
+}
+
+function createNavigationAbortedError (from, to) {
+  return createRouterError(
+    from,
+    to,
+    NavigationFailureType.aborted,
+    ("Navigation aborted from \"" + (from.fullPath) + "\" to \"" + (to.fullPath) + "\" via a navigation guard.")
+  )
+}
+
+function createRouterError (from, to, type, message) {
+  var error = new Error(message);
+  error._isRouter = true;
+  error.from = from;
+  error.to = to;
+  error.type = type;
+
+  return error
+}
+
+var propertiesToLog = ['params', 'query', 'hash'];
+
+function stringifyRoute (to) {
+  if (typeof to === 'string') { return to }
+  if ('path' in to) { return to.path }
+  var location = {};
+  propertiesToLog.forEach(function (key) {
+    if (key in to) { location[key] = to[key]; }
+  });
+  return JSON.stringify(location, null, 2)
+}
+
+function isError (err) {
+  return Object.prototype.toString.call(err).indexOf('Error') > -1
+}
+
+function isNavigationFailure (err, errorType) {
+  return (
+    isError(err) &&
+    err._isRouter &&
+    (errorType == null || err.type === errorType)
+  )
 }
 
 /*  */
@@ -11115,33 +11351,6 @@ function once (fn) {
   }
 }
 
-var NavigationDuplicated = /*@__PURE__*/(function (Error) {
-  function NavigationDuplicated (normalizedLocation) {
-    Error.call(this);
-    this.name = this._name = 'NavigationDuplicated';
-    // passing the message to super() doesn't seem to work in the transpiled version
-    this.message = "Navigating to current location (\"" + (normalizedLocation.fullPath) + "\") is not allowed";
-    // add a stack property so services like Sentry can correctly display it
-    Object.defineProperty(this, 'stack', {
-      value: new Error().stack,
-      writable: true,
-      configurable: true
-    });
-    // we could also have used
-    // Error.captureStackTrace(this, this.constructor)
-    // but it only exists on node and chrome
-  }
-
-  if ( Error ) NavigationDuplicated.__proto__ = Error;
-  NavigationDuplicated.prototype = Object.create( Error && Error.prototype );
-  NavigationDuplicated.prototype.constructor = NavigationDuplicated;
-
-  return NavigationDuplicated;
-}(Error));
-
-// support IE9
-NavigationDuplicated._name = 'NavigationDuplicated';
-
 /*  */
 
 var History = function History (router, base) {
@@ -11154,6 +11363,7 @@ var History = function History (router, base) {
   this.readyCbs = [];
   this.readyErrorCbs = [];
   this.errorCbs = [];
+  this.listeners = [];
 };
 
 History.prototype.listen = function listen (cb) {
@@ -11182,13 +11392,27 @@ History.prototype.transitionTo = function transitionTo (
 ) {
     var this$1 = this;
 
-  var route = this.router.match(location, this.current);
+  var route;
+  // catch redirect option https://github.com/vuejs/vue-router/issues/3201
+  try {
+    route = this.router.match(location, this.current);
+  } catch (e) {
+    this.errorCbs.forEach(function (cb) {
+      cb(e);
+    });
+    // Exception should still be thrown
+    throw e
+  }
+  var prev = this.current;
   this.confirmTransition(
     route,
     function () {
       this$1.updateRoute(route);
       onComplete && onComplete(route);
       this$1.ensureURL();
+      this$1.router.afterHooks.forEach(function (hook) {
+        hook && hook(route, prev);
+      });
 
       // fire ready cbs once
       if (!this$1.ready) {
@@ -11203,10 +11427,16 @@ History.prototype.transitionTo = function transitionTo (
         onAbort(err);
       }
       if (err && !this$1.ready) {
-        this$1.ready = true;
-        this$1.readyErrorCbs.forEach(function (cb) {
-          cb(err);
-        });
+        // Initial redirection should not mark the history as ready yet
+        // because it's triggered by the redirection instead
+        // https://github.com/vuejs/vue-router/issues/3225
+        // https://github.com/vuejs/vue-router/issues/3331
+        if (!isNavigationFailure(err, NavigationFailureType.redirected) || prev !== START) {
+          this$1.ready = true;
+          this$1.readyErrorCbs.forEach(function (cb) {
+            cb(err);
+          });
+        }
       }
     }
   );
@@ -11216,12 +11446,12 @@ History.prototype.confirmTransition = function confirmTransition (route, onCompl
     var this$1 = this;
 
   var current = this.current;
+  this.pending = route;
   var abort = function (err) {
-    // after merging https://github.com/vuejs/vue-router/pull/2771 we
-    // When the user navigates through history through back/forward buttons
-    // we do not want to throw the error. We only throw it if directly calling
-    // push/replace. That's why it's not included in isError
-    if (!isExtendedError(NavigationDuplicated, err) && isError(err)) {
+    // changed after adding errors with
+    // https://github.com/vuejs/vue-router/pull/3047 before that change,
+    // redirect and aborted navigation would produce an err == null
+    if (!isNavigationFailure(err) && isError(err)) {
       if (this$1.errorCbs.length) {
         this$1.errorCbs.forEach(function (cb) {
           cb(err);
@@ -11233,13 +11463,16 @@ History.prototype.confirmTransition = function confirmTransition (route, onCompl
     }
     onAbort && onAbort(err);
   };
+  var lastRouteIndex = route.matched.length - 1;
+  var lastCurrentIndex = current.matched.length - 1;
   if (
     isSameRoute(route, current) &&
     // in the case the route map has been dynamically appended to
-    route.matched.length === current.matched.length
+    lastRouteIndex === lastCurrentIndex &&
+    route.matched[lastRouteIndex] === current.matched[lastCurrentIndex]
   ) {
     this.ensureURL();
-    return abort(new NavigationDuplicated(route))
+    return abort(createNavigationDuplicatedError(current, route))
   }
 
   var ref = resolveQueue(
@@ -11263,15 +11496,17 @@ History.prototype.confirmTransition = function confirmTransition (route, onCompl
     resolveAsyncComponents(activated)
   );
 
-  this.pending = route;
   var iterator = function (hook, next) {
     if (this$1.pending !== route) {
-      return abort()
+      return abort(createNavigationCancelledError(current, route))
     }
     try {
       hook(route, current, function (to) {
-        if (to === false || isError(to)) {
+        if (to === false) {
           // next(false) -> abort navigation, ensure current URL
+          this$1.ensureURL(true);
+          abort(createNavigationAbortedError(current, route));
+        } else if (isError(to)) {
           this$1.ensureURL(true);
           abort(to);
         } else if (
@@ -11280,7 +11515,7 @@ History.prototype.confirmTransition = function confirmTransition (route, onCompl
             (typeof to.path === 'string' || typeof to.name === 'string'))
         ) {
           // next('/') or next({ path: '/' }) -> redirect
-          abort();
+          abort(createNavigationRedirectedError(current, route));
           if (typeof to === 'object' && to.replace) {
             this$1.replace(to);
           } else {
@@ -11297,23 +11532,19 @@ History.prototype.confirmTransition = function confirmTransition (route, onCompl
   };
 
   runQueue(queue, iterator, function () {
-    var postEnterCbs = [];
-    var isValid = function () { return this$1.current === route; };
     // wait until async components are resolved before
     // extracting in-component enter guards
-    var enterGuards = extractEnterGuards(activated, postEnterCbs, isValid);
+    var enterGuards = extractEnterGuards(activated);
     var queue = enterGuards.concat(this$1.router.resolveHooks);
     runQueue(queue, iterator, function () {
       if (this$1.pending !== route) {
-        return abort()
+        return abort(createNavigationCancelledError(current, route))
       }
       this$1.pending = null;
       onComplete(route);
       if (this$1.router.app) {
         this$1.router.app.$nextTick(function () {
-          postEnterCbs.forEach(function (cb) {
-            cb();
-          });
+          handleRouteEntered(route);
         });
       }
     });
@@ -11321,12 +11552,26 @@ History.prototype.confirmTransition = function confirmTransition (route, onCompl
 };
 
 History.prototype.updateRoute = function updateRoute (route) {
-  var prev = this.current;
   this.current = route;
   this.cb && this.cb(route);
-  this.router.afterHooks.forEach(function (hook) {
-    hook && hook(route, prev);
+};
+
+History.prototype.setupListeners = function setupListeners () {
+  // Default implementation is empty
+};
+
+History.prototype.teardown = function teardown () {
+  // clean up event listeners
+  // https://github.com/vuejs/vue-router/issues/2341
+  this.listeners.forEach(function (cleanupListener) {
+    cleanupListener();
   });
+  this.listeners = [];
+
+  // reset current history route
+  // https://github.com/vuejs/vue-router/issues/3294
+  this.current = START;
+  this.pending = null;
 };
 
 function normalizeBase (base) {
@@ -11412,15 +11657,13 @@ function bindGuard (guard, instance) {
 }
 
 function extractEnterGuards (
-  activated,
-  cbs,
-  isValid
+  activated
 ) {
   return extractGuards(
     activated,
     'beforeRouteEnter',
     function (guard, _, match, key) {
-      return bindEnterGuard(guard, match, key, cbs, isValid)
+      return bindEnterGuard(guard, match, key)
     }
   )
 }
@@ -11428,42 +11671,18 @@ function extractEnterGuards (
 function bindEnterGuard (
   guard,
   match,
-  key,
-  cbs,
-  isValid
+  key
 ) {
   return function routeEnterGuard (to, from, next) {
     return guard(to, from, function (cb) {
       if (typeof cb === 'function') {
-        cbs.push(function () {
-          // #750
-          // if a router-view is wrapped with an out-in transition,
-          // the instance may not have been registered at this time.
-          // we will need to poll for registration until current route
-          // is no longer valid.
-          poll(cb, match.instances, key, isValid);
-        });
+        if (!match.enteredCbs[key]) {
+          match.enteredCbs[key] = [];
+        }
+        match.enteredCbs[key].push(cb);
       }
       next(cb);
     })
-  }
-}
-
-function poll (
-  cb, // somehow flow cannot infer this is a function
-  instances,
-  key,
-  isValid
-) {
-  if (
-    instances[key] &&
-    !instances[key]._isBeingDestroyed // do not reuse being destroyed instance
-  ) {
-    cb(instances[key]);
-  } else if (isValid()) {
-    setTimeout(function () {
-      poll(cb, instances, key, isValid);
-    }, 16);
   }
 }
 
@@ -11471,25 +11690,37 @@ function poll (
 
 var HTML5History = /*@__PURE__*/(function (History) {
   function HTML5History (router, base) {
-    var this$1 = this;
-
     History.call(this, router, base);
 
+    this._startLocation = getLocation(this.base);
+  }
+
+  if ( History ) HTML5History.__proto__ = History;
+  HTML5History.prototype = Object.create( History && History.prototype );
+  HTML5History.prototype.constructor = HTML5History;
+
+  HTML5History.prototype.setupListeners = function setupListeners () {
+    var this$1 = this;
+
+    if (this.listeners.length > 0) {
+      return
+    }
+
+    var router = this.router;
     var expectScroll = router.options.scrollBehavior;
     var supportsScroll = supportsPushState && expectScroll;
 
     if (supportsScroll) {
-      setupScroll();
+      this.listeners.push(setupScroll());
     }
 
-    var initLocation = getLocation(this.base);
-    window.addEventListener('popstate', function (e) {
+    var handleRoutingEvent = function () {
       var current = this$1.current;
 
       // Avoiding first `popstate` event dispatched in some browsers but first
       // history route not updated since async guard at the same time.
       var location = getLocation(this$1.base);
-      if (this$1.current === START && location === initLocation) {
+      if (this$1.current === START && location === this$1._startLocation) {
         return
       }
 
@@ -11498,12 +11729,12 @@ var HTML5History = /*@__PURE__*/(function (History) {
           handleScroll(router, route, current, true);
         }
       });
+    };
+    window.addEventListener('popstate', handleRoutingEvent);
+    this.listeners.push(function () {
+      window.removeEventListener('popstate', handleRoutingEvent);
     });
-  }
-
-  if ( History ) HTML5History.__proto__ = History;
-  HTML5History.prototype = Object.create( History && History.prototype );
-  HTML5History.prototype.constructor = HTML5History;
+  };
 
   HTML5History.prototype.go = function go (n) {
     window.history.go(n);
@@ -11548,7 +11779,7 @@ var HTML5History = /*@__PURE__*/(function (History) {
 }(History));
 
 function getLocation (base) {
-  var path = decodeURI(window.location.pathname);
+  var path = window.location.pathname;
   if (base && path.toLowerCase().indexOf(base.toLowerCase()) === 0) {
     path = path.slice(base.length);
   }
@@ -11576,31 +11807,40 @@ var HashHistory = /*@__PURE__*/(function (History) {
   HashHistory.prototype.setupListeners = function setupListeners () {
     var this$1 = this;
 
+    if (this.listeners.length > 0) {
+      return
+    }
+
     var router = this.router;
     var expectScroll = router.options.scrollBehavior;
     var supportsScroll = supportsPushState && expectScroll;
 
     if (supportsScroll) {
-      setupScroll();
+      this.listeners.push(setupScroll());
     }
 
-    window.addEventListener(
-      supportsPushState ? 'popstate' : 'hashchange',
-      function () {
-        var current = this$1.current;
-        if (!ensureSlash()) {
-          return
-        }
-        this$1.transitionTo(getHash(), function (route) {
-          if (supportsScroll) {
-            handleScroll(this$1.router, route, current, true);
-          }
-          if (!supportsPushState) {
-            replaceHash(route.fullPath);
-          }
-        });
+    var handleRoutingEvent = function () {
+      var current = this$1.current;
+      if (!ensureSlash()) {
+        return
       }
+      this$1.transitionTo(getHash(), function (route) {
+        if (supportsScroll) {
+          handleScroll(this$1.router, route, current, true);
+        }
+        if (!supportsPushState) {
+          replaceHash(route.fullPath);
+        }
+      });
+    };
+    var eventType = supportsPushState ? 'popstate' : 'hashchange';
+    window.addEventListener(
+      eventType,
+      handleRoutingEvent
     );
+    this.listeners.push(function () {
+      window.removeEventListener(eventType, handleRoutingEvent);
+    });
   };
 
   HashHistory.prototype.push = function push (location, onComplete, onAbort) {
@@ -11679,18 +11919,6 @@ function getHash () {
   if (index < 0) { return '' }
 
   href = href.slice(index + 1);
-  // decode the hash but not the search or hash
-  // as search(query) is already decoded
-  // https://github.com/vuejs/vue-router/issues/2708
-  var searchIndex = href.indexOf('?');
-  if (searchIndex < 0) {
-    var hashIndex = href.indexOf('#');
-    if (hashIndex > -1) {
-      href = decodeURI(href.slice(0, hashIndex)) + href.slice(hashIndex);
-    } else { href = decodeURI(href); }
-  } else {
-    href = decodeURI(href.slice(0, searchIndex)) + href.slice(searchIndex);
-  }
 
   return href
 }
@@ -11769,11 +11997,15 @@ var AbstractHistory = /*@__PURE__*/(function (History) {
     this.confirmTransition(
       route,
       function () {
+        var prev = this$1.current;
         this$1.index = targetIndex;
         this$1.updateRoute(route);
+        this$1.router.afterHooks.forEach(function (hook) {
+          hook && hook(route, prev);
+        });
       },
       function (err) {
-        if (isExtendedError(NavigationDuplicated, err)) {
+        if (isNavigationFailure(err, NavigationFailureType.duplicated)) {
           this$1.index = targetIndex;
         }
       }
@@ -11794,8 +12026,6 @@ var AbstractHistory = /*@__PURE__*/(function (History) {
 
 /*  */
 
-
-
 var VueRouter = function VueRouter (options) {
   if ( options === void 0 ) options = {};
 
@@ -11808,7 +12038,8 @@ var VueRouter = function VueRouter (options) {
   this.matcher = createMatcher(options.routes || [], this);
 
   var mode = options.mode || 'hash';
-  this.fallback = mode === 'history' && !supportsPushState && options.fallback !== false;
+  this.fallback =
+    mode === 'history' && !supportsPushState && options.fallback !== false;
   if (this.fallback) {
     mode = 'hash';
   }
@@ -11836,11 +12067,7 @@ var VueRouter = function VueRouter (options) {
 
 var prototypeAccessors = { currentRoute: { configurable: true } };
 
-VueRouter.prototype.match = function match (
-  raw,
-  current,
-  redirectedFrom
-) {
+VueRouter.prototype.match = function match (raw, current, redirectedFrom) {
   return this.matcher.match(raw, current, redirectedFrom)
 };
 
@@ -11851,11 +12078,12 @@ prototypeAccessors.currentRoute.get = function () {
 VueRouter.prototype.init = function init (app /* Vue component instance */) {
     var this$1 = this;
 
-   true && assert(
-    install.installed,
-    "not installed. Make sure to call `Vue.use(VueRouter)` " +
-    "before creating root instance."
-  );
+   true &&
+    assert(
+      install.installed,
+      "not installed. Make sure to call `Vue.use(VueRouter)` " +
+        "before creating root instance."
+    );
 
   this.apps.push(app);
 
@@ -11868,6 +12096,8 @@ VueRouter.prototype.init = function init (app /* Vue component instance */) {
     // ensure we still have a main app or null if no apps
     // we do not release the router so it can be reused
     if (this$1.app === app) { this$1.app = this$1.apps[0] || null; }
+
+    if (!this$1.app) { this$1.history.teardown(); }
   });
 
   // main app previously initialized
@@ -11880,16 +12110,24 @@ VueRouter.prototype.init = function init (app /* Vue component instance */) {
 
   var history = this.history;
 
-  if (history instanceof HTML5History) {
-    history.transitionTo(history.getCurrentLocation());
-  } else if (history instanceof HashHistory) {
-    var setupHashListener = function () {
+  if (history instanceof HTML5History || history instanceof HashHistory) {
+    var handleInitialScroll = function (routeOrError) {
+      var from = history.current;
+      var expectScroll = this$1.options.scrollBehavior;
+      var supportsScroll = supportsPushState && expectScroll;
+
+      if (supportsScroll && 'fullPath' in routeOrError) {
+        handleScroll(this$1, routeOrError, from, false);
+      }
+    };
+    var setupListeners = function (routeOrError) {
       history.setupListeners();
+      handleInitialScroll(routeOrError);
     };
     history.transitionTo(
       history.getCurrentLocation(),
-      setupHashListener,
-      setupHashListener
+      setupListeners,
+      setupListeners
     );
   }
 
@@ -11967,11 +12205,14 @@ VueRouter.prototype.getMatchedComponents = function getMatchedComponents (to) {
   if (!route) {
     return []
   }
-  return [].concat.apply([], route.matched.map(function (m) {
-    return Object.keys(m.components).map(function (key) {
-      return m.components[key]
+  return [].concat.apply(
+    [],
+    route.matched.map(function (m) {
+      return Object.keys(m.components).map(function (key) {
+        return m.components[key]
+      })
     })
-  }))
+  )
 };
 
 VueRouter.prototype.resolve = function resolve (
@@ -11980,12 +12221,7 @@ VueRouter.prototype.resolve = function resolve (
   append
 ) {
   current = current || this.history.current;
-  var location = normalizeLocation(
-    to,
-    current,
-    append,
-    this
-  );
+  var location = normalizeLocation(to, current, append, this);
   var route = this.match(location, current);
   var fullPath = route.redirectedFrom || route.fullPath;
   var base = this.history.base;
@@ -12000,7 +12236,21 @@ VueRouter.prototype.resolve = function resolve (
   }
 };
 
+VueRouter.prototype.getRoutes = function getRoutes () {
+  return this.matcher.getRoutes()
+};
+
+VueRouter.prototype.addRoute = function addRoute (parentOrRoute, route) {
+  this.matcher.addRoute(parentOrRoute, route);
+  if (this.history.current !== START) {
+    this.history.transitionTo(this.history.getCurrentLocation());
+  }
+};
+
 VueRouter.prototype.addRoutes = function addRoutes (routes) {
+  if (true) {
+    warn(false, 'router.addRoutes() is deprecated and has been removed in Vue Router 4. Use router.addRoute() instead.');
+  }
   this.matcher.addRoutes(routes);
   if (this.history.current !== START) {
     this.history.transitionTo(this.history.getCurrentLocation());
@@ -12023,7 +12273,10 @@ function createHref (base, fullPath, mode) {
 }
 
 VueRouter.install = install;
-VueRouter.version = '3.2.0';
+VueRouter.version = '3.5.1';
+VueRouter.isNavigationFailure = isNavigationFailure;
+VueRouter.NavigationFailureType = NavigationFailureType;
+VueRouter.START_LOCATION = START;
 
 if (inBrowser && window.Vue) {
   window.Vue.use(VueRouter);
@@ -12041,28 +12294,22 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "createStore", function() { return createStore; });
 /* harmony import */ var vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(2);
 /* harmony import */ var vuex__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(16);
-/* harmony import */ var _api__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(17);
-
 
 
 vue__WEBPACK_IMPORTED_MODULE_0__["default"].use(vuex__WEBPACK_IMPORTED_MODULE_1__["default"]);
+
+var files = __webpack_require__(17);
+
+var modules = {};
+files.keys().forEach(function (key) {
+  modules[key.replace(/(\.\/|\.js)/g, "")] = files(key).default;
+});
+Object.keys(modules).forEach(function (key) {
+  modules[key]["namespaced"] = true;
+});
 function createStore() {
   var store = new vuex__WEBPACK_IMPORTED_MODULE_1__["default"].Store({
-    state: {
-      topList: null
-    },
-    mutations: {
-      setTopList: function setTopList(state, list) {
-        state.topList = list;
-      }
-    },
-    actions: {
-      getTopList: function getTopList(store) {
-        return Object(_api__WEBPACK_IMPORTED_MODULE_2__["top20"])().then(function (res) {
-          store.commit('setTopList', res.data.subjects);
-        });
-      }
-    }
+    modules: modules
   });
   return store;
 }
@@ -13328,12 +13575,70 @@ var index = {
 
 /***/ }),
 /* 17 */
+/***/ (function(module, exports, __webpack_require__) {
+
+var map = {
+	"./home.js": 18
+};
+
+
+function webpackContext(req) {
+	var id = webpackContextResolve(req);
+	return __webpack_require__(id);
+}
+function webpackContextResolve(req) {
+	if(!__webpack_require__.o(map, req)) {
+		var e = new Error("Cannot find module '" + req + "'");
+		e.code = 'MODULE_NOT_FOUND';
+		throw e;
+	}
+	return map[req];
+}
+webpackContext.keys = function webpackContextKeys() {
+	return Object.keys(map);
+};
+webpackContext.resolve = webpackContextResolve;
+module.exports = webpackContext;
+webpackContext.id = 17;
+
+/***/ }),
+/* 18 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony import */ var _api__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(19);
+
+var state = {
+  topList: {}
+};
+var mutations = {
+  setTopList: function setTopList(state, list) {
+    state.topList = list;
+  }
+};
+var actions = {
+  getTopList: function getTopList(store) {
+    return Object(_api__WEBPACK_IMPORTED_MODULE_0__["top20"])().then(function (res) {
+      store.commit('setTopList', res.data.subjects);
+    });
+  }
+};
+/* harmony default export */ __webpack_exports__["default"] = ({
+  namespaced: true,
+  state: state,
+  actions: actions,
+  mutations: mutations
+});
+
+/***/ }),
+/* 19 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "top20", function() { return top20; });
-/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(18);
+/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(20);
 /* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(axios__WEBPACK_IMPORTED_MODULE_0__);
 
 var searchSubjects = 'https://movie.douban.com/j/search_subjects';
@@ -13350,23 +13655,23 @@ function top20() {
 }
 
 /***/ }),
-/* 18 */
+/* 20 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports = __webpack_require__(19);
+module.exports = __webpack_require__(21);
 
 /***/ }),
-/* 19 */
+/* 21 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
-var bind = __webpack_require__(21);
-var Axios = __webpack_require__(22);
-var mergeConfig = __webpack_require__(59);
-var defaults = __webpack_require__(28);
+var utils = __webpack_require__(22);
+var bind = __webpack_require__(23);
+var Axios = __webpack_require__(24);
+var mergeConfig = __webpack_require__(60);
+var defaults = __webpack_require__(30);
 
 /**
  * Create an instance of Axios
@@ -13399,18 +13704,18 @@ axios.create = function create(instanceConfig) {
 };
 
 // Expose Cancel & CancelToken
-axios.Cancel = __webpack_require__(60);
-axios.CancelToken = __webpack_require__(61);
-axios.isCancel = __webpack_require__(27);
+axios.Cancel = __webpack_require__(61);
+axios.CancelToken = __webpack_require__(62);
+axios.isCancel = __webpack_require__(29);
 
 // Expose all/spread
 axios.all = function all(promises) {
   return Promise.all(promises);
 };
-axios.spread = __webpack_require__(62);
+axios.spread = __webpack_require__(63);
 
 // Expose isAxiosError
-axios.isAxiosError = __webpack_require__(63);
+axios.isAxiosError = __webpack_require__(64);
 
 module.exports = axios;
 
@@ -13419,13 +13724,13 @@ module.exports.default = axios;
 
 
 /***/ }),
-/* 20 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var bind = __webpack_require__(21);
+var bind = __webpack_require__(23);
 
 /*global toString:true*/
 
@@ -13777,7 +14082,7 @@ module.exports = {
 
 
 /***/ }),
-/* 21 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -13795,17 +14100,17 @@ module.exports = function bind(fn, thisArg) {
 
 
 /***/ }),
-/* 22 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
-var buildURL = __webpack_require__(23);
-var InterceptorManager = __webpack_require__(24);
-var dispatchRequest = __webpack_require__(25);
-var mergeConfig = __webpack_require__(59);
+var utils = __webpack_require__(22);
+var buildURL = __webpack_require__(25);
+var InterceptorManager = __webpack_require__(26);
+var dispatchRequest = __webpack_require__(27);
+var mergeConfig = __webpack_require__(60);
 
 /**
  * Create a new instance of Axios
@@ -13897,13 +14202,13 @@ module.exports = Axios;
 
 
 /***/ }),
-/* 23 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 function encode(val) {
   return encodeURIComponent(val).
@@ -13974,13 +14279,13 @@ module.exports = function buildURL(url, params, paramsSerializer) {
 
 
 /***/ }),
-/* 24 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 function InterceptorManager() {
   this.handlers = [];
@@ -14033,16 +14338,16 @@ module.exports = InterceptorManager;
 
 
 /***/ }),
-/* 25 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
-var transformData = __webpack_require__(26);
-var isCancel = __webpack_require__(27);
-var defaults = __webpack_require__(28);
+var utils = __webpack_require__(22);
+var transformData = __webpack_require__(28);
+var isCancel = __webpack_require__(29);
+var defaults = __webpack_require__(30);
 
 /**
  * Throws a `Cancel` if cancellation has been requested.
@@ -14119,13 +14424,13 @@ module.exports = function dispatchRequest(config) {
 
 
 /***/ }),
-/* 26 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 /**
  * Transform the data for a request or a response
@@ -14146,7 +14451,7 @@ module.exports = function transformData(data, headers, fns) {
 
 
 /***/ }),
-/* 27 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -14158,14 +14463,14 @@ module.exports = function isCancel(value) {
 
 
 /***/ }),
-/* 28 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
-var normalizeHeaderName = __webpack_require__(29);
+var utils = __webpack_require__(22);
+var normalizeHeaderName = __webpack_require__(31);
 
 var DEFAULT_CONTENT_TYPE = {
   'Content-Type': 'application/x-www-form-urlencoded'
@@ -14181,10 +14486,10 @@ function getDefaultAdapter() {
   var adapter;
   if (typeof XMLHttpRequest !== 'undefined') {
     // For browsers use XHR adapter
-    adapter = __webpack_require__(30);
+    adapter = __webpack_require__(32);
   } else if (typeof process !== 'undefined' && Object.prototype.toString.call(process) === '[object process]') {
     // For node use HTTP adapter
-    adapter = __webpack_require__(40);
+    adapter = __webpack_require__(42);
   }
   return adapter;
 }
@@ -14263,13 +14568,13 @@ module.exports = defaults;
 
 
 /***/ }),
-/* 29 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 module.exports = function normalizeHeaderName(headers, normalizedName) {
   utils.forEach(headers, function processHeader(value, name) {
@@ -14282,20 +14587,20 @@ module.exports = function normalizeHeaderName(headers, normalizedName) {
 
 
 /***/ }),
-/* 30 */
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
-var settle = __webpack_require__(31);
-var cookies = __webpack_require__(34);
-var buildURL = __webpack_require__(23);
-var buildFullPath = __webpack_require__(35);
-var parseHeaders = __webpack_require__(38);
-var isURLSameOrigin = __webpack_require__(39);
-var createError = __webpack_require__(32);
+var utils = __webpack_require__(22);
+var settle = __webpack_require__(33);
+var cookies = __webpack_require__(36);
+var buildURL = __webpack_require__(25);
+var buildFullPath = __webpack_require__(37);
+var parseHeaders = __webpack_require__(40);
+var isURLSameOrigin = __webpack_require__(41);
+var createError = __webpack_require__(34);
 
 module.exports = function xhrAdapter(config) {
   return new Promise(function dispatchXhrRequest(resolve, reject) {
@@ -14468,13 +14773,13 @@ module.exports = function xhrAdapter(config) {
 
 
 /***/ }),
-/* 31 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var createError = __webpack_require__(32);
+var createError = __webpack_require__(34);
 
 /**
  * Resolve or reject a Promise based on response status.
@@ -14500,13 +14805,13 @@ module.exports = function settle(resolve, reject, response) {
 
 
 /***/ }),
-/* 32 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var enhanceError = __webpack_require__(33);
+var enhanceError = __webpack_require__(35);
 
 /**
  * Create an Error with the specified message, config, error code, request and response.
@@ -14525,7 +14830,7 @@ module.exports = function createError(message, config, code, request, response) 
 
 
 /***/ }),
-/* 33 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -14574,13 +14879,13 @@ module.exports = function enhanceError(error, config, code, request, response) {
 
 
 /***/ }),
-/* 34 */
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 module.exports = (
   utils.isStandardBrowserEnv() ?
@@ -14634,14 +14939,14 @@ module.exports = (
 
 
 /***/ }),
-/* 35 */
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var isAbsoluteURL = __webpack_require__(36);
-var combineURLs = __webpack_require__(37);
+var isAbsoluteURL = __webpack_require__(38);
+var combineURLs = __webpack_require__(39);
 
 /**
  * Creates a new URL by combining the baseURL with the requestedURL,
@@ -14661,7 +14966,7 @@ module.exports = function buildFullPath(baseURL, requestedURL) {
 
 
 /***/ }),
-/* 36 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -14682,7 +14987,7 @@ module.exports = function isAbsoluteURL(url) {
 
 
 /***/ }),
-/* 37 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -14703,13 +15008,13 @@ module.exports = function combineURLs(baseURL, relativeURL) {
 
 
 /***/ }),
-/* 38 */
+/* 40 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 // Headers whose duplicates are ignored by node
 // c.f. https://nodejs.org/api/http.html#http_message_headers
@@ -14763,13 +15068,13 @@ module.exports = function parseHeaders(headers) {
 
 
 /***/ }),
-/* 39 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 module.exports = (
   utils.isStandardBrowserEnv() ?
@@ -14838,25 +15143,25 @@ module.exports = (
 
 
 /***/ }),
-/* 40 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
-var settle = __webpack_require__(31);
-var buildFullPath = __webpack_require__(35);
-var buildURL = __webpack_require__(23);
-var http = __webpack_require__(41);
-var https = __webpack_require__(42);
-var httpFollow = __webpack_require__(43).http;
-var httpsFollow = __webpack_require__(43).https;
-var url = __webpack_require__(44);
-var zlib = __webpack_require__(57);
-var pkg = __webpack_require__(58);
-var createError = __webpack_require__(32);
-var enhanceError = __webpack_require__(33);
+var utils = __webpack_require__(22);
+var settle = __webpack_require__(33);
+var buildFullPath = __webpack_require__(37);
+var buildURL = __webpack_require__(25);
+var http = __webpack_require__(43);
+var https = __webpack_require__(44);
+var httpFollow = __webpack_require__(45).http;
+var httpsFollow = __webpack_require__(45).https;
+var url = __webpack_require__(46);
+var zlib = __webpack_require__(58);
+var pkg = __webpack_require__(59);
+var createError = __webpack_require__(34);
+var enhanceError = __webpack_require__(35);
 
 var isHttps = /https:?/;
 
@@ -15148,32 +15453,33 @@ module.exports = function httpAdapter(config) {
 
 
 /***/ }),
-/* 41 */
+/* 43 */
 /***/ (function(module, exports) {
 
 module.exports = require("http");
 
 /***/ }),
-/* 42 */
+/* 44 */
 /***/ (function(module, exports) {
 
 module.exports = require("https");
 
 /***/ }),
-/* 43 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
-var url = __webpack_require__(44);
+var url = __webpack_require__(46);
 var URL = url.URL;
-var http = __webpack_require__(41);
-var https = __webpack_require__(42);
-var Writable = __webpack_require__(45).Writable;
-var assert = __webpack_require__(46);
-var debug = __webpack_require__(47);
+var http = __webpack_require__(43);
+var https = __webpack_require__(44);
+var Writable = __webpack_require__(47).Writable;
+var assert = __webpack_require__(48);
+var debug = __webpack_require__(49);
 
 // Create handlers that pass events from native requests
+var events = ["abort", "aborted", "connect", "error", "socket", "timeout"];
 var eventHandlers = Object.create(null);
-["abort", "aborted", "connect", "error", "socket", "timeout"].forEach(function (event) {
+events.forEach(function (event) {
   eventHandlers[event] = function (arg1, arg2, arg3) {
     this._redirectable.emit(event, arg1, arg2, arg3);
   };
@@ -15227,14 +15533,8 @@ function RedirectableRequest(options, responseCallback) {
 RedirectableRequest.prototype = Object.create(Writable.prototype);
 
 RedirectableRequest.prototype.abort = function () {
-  // Abort the internal request
-  this._currentRequest.removeAllListeners();
-  this._currentRequest.on("error", noop);
-  this._currentRequest.abort();
-
-  // Abort this request
+  abortRequest(this._currentRequest);
   this.emit("abort");
-  this.removeAllListeners();
 };
 
 // Writes buffered data to the current native request
@@ -15321,8 +15621,14 @@ RedirectableRequest.prototype.setTimeout = function (msecs, callback) {
     this.on("timeout", callback);
   }
 
+  function destroyOnTimeout(socket) {
+    socket.setTimeout(msecs);
+    socket.removeListener("timeout", socket.destroy);
+    socket.addListener("timeout", socket.destroy);
+  }
+
   // Sets up a timer to trigger a timeout event
-  function startTimer() {
+  function startTimer(socket) {
     if (self._timeout) {
       clearTimeout(self._timeout);
     }
@@ -15330,6 +15636,7 @@ RedirectableRequest.prototype.setTimeout = function (msecs, callback) {
       self.emit("timeout");
       clearTimer();
     }, msecs);
+    destroyOnTimeout(socket);
   }
 
   // Prevent a timeout from triggering
@@ -15345,12 +15652,13 @@ RedirectableRequest.prototype.setTimeout = function (msecs, callback) {
 
   // Start the timer when the socket is opened
   if (this.socket) {
-    startTimer();
+    startTimer(this.socket);
   }
   else {
     this._currentRequest.once("socket", startTimer);
   }
 
+  this.on("socket", destroyOnTimeout);
   this.once("response", clearTimer);
   this.once("error", clearTimer);
 
@@ -15429,11 +15737,8 @@ RedirectableRequest.prototype._performRequest = function () {
 
   // Set up event handlers
   request._redirectable = this;
-  for (var event in eventHandlers) {
-    /* istanbul ignore else */
-    if (event) {
-      request.on(event, eventHandlers[event]);
-    }
+  for (var e = 0; e < events.length; e++) {
+    request.on(events[e], eventHandlers[events[e]]);
   }
 
   // End a redirected request
@@ -15491,9 +15796,7 @@ RedirectableRequest.prototype._processResponse = function (response) {
   if (location && this._options.followRedirects !== false &&
       statusCode >= 300 && statusCode < 400) {
     // Abort the current request
-    this._currentRequest.removeAllListeners();
-    this._currentRequest.on("error", noop);
-    this._currentRequest.abort();
+    abortRequest(this._currentRequest);
     // Discard the remainder of the response to avoid waiting for data
     response.destroy();
 
@@ -15685,31 +15988,39 @@ function createErrorType(code, defaultMessage) {
   return CustomError;
 }
 
+function abortRequest(request) {
+  for (var e = 0; e < events.length; e++) {
+    request.removeListener(events[e], eventHandlers[events[e]]);
+  }
+  request.on("error", noop);
+  request.abort();
+}
+
 // Exports
 module.exports = wrap({ http: http, https: https });
 module.exports.wrap = wrap;
 
 
 /***/ }),
-/* 44 */
+/* 46 */
 /***/ (function(module, exports) {
 
 module.exports = require("url");
 
 /***/ }),
-/* 45 */
+/* 47 */
 /***/ (function(module, exports) {
 
 module.exports = require("stream");
 
 /***/ }),
-/* 46 */
+/* 48 */
 /***/ (function(module, exports) {
 
 module.exports = require("assert");
 
 /***/ }),
-/* 47 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var debug;
@@ -15718,7 +16029,7 @@ module.exports = function () {
   if (!debug) {
     try {
       /* eslint global-require: off */
-      debug = __webpack_require__(48)("follow-redirects");
+      debug = __webpack_require__(50)("follow-redirects");
     }
     catch (error) {
       debug = function () { /* */ };
@@ -15729,7 +16040,7 @@ module.exports = function () {
 
 
 /***/ }),
-/* 48 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -15737,15 +16048,15 @@ module.exports = function () {
  * treat as a browser.
  */
 
-if (typeof process !== 'undefined' && process.type === 'renderer') {
-  module.exports = __webpack_require__(49);
+if (typeof process === 'undefined' || process.type === 'renderer') {
+  module.exports = __webpack_require__(51);
 } else {
-  module.exports = __webpack_require__(52);
+  module.exports = __webpack_require__(54);
 }
 
 
 /***/ }),
-/* 49 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
@@ -15754,7 +16065,7 @@ if (typeof process !== 'undefined' && process.type === 'renderer') {
  * Expose `debug()` as the module.
  */
 
-exports = module.exports = __webpack_require__(50);
+exports = module.exports = __webpack_require__(52);
 exports.log = log;
 exports.formatArgs = formatArgs;
 exports.save = save;
@@ -15770,12 +16081,17 @@ exports.storage = 'undefined' != typeof chrome
  */
 
 exports.colors = [
-  'lightseagreen',
-  'forestgreen',
-  'goldenrod',
-  'dodgerblue',
-  'darkorchid',
-  'crimson'
+  '#0000CC', '#0000FF', '#0033CC', '#0033FF', '#0066CC', '#0066FF', '#0099CC',
+  '#0099FF', '#00CC00', '#00CC33', '#00CC66', '#00CC99', '#00CCCC', '#00CCFF',
+  '#3300CC', '#3300FF', '#3333CC', '#3333FF', '#3366CC', '#3366FF', '#3399CC',
+  '#3399FF', '#33CC00', '#33CC33', '#33CC66', '#33CC99', '#33CCCC', '#33CCFF',
+  '#6600CC', '#6600FF', '#6633CC', '#6633FF', '#66CC00', '#66CC33', '#9900CC',
+  '#9900FF', '#9933CC', '#9933FF', '#99CC00', '#99CC33', '#CC0000', '#CC0033',
+  '#CC0066', '#CC0099', '#CC00CC', '#CC00FF', '#CC3300', '#CC3333', '#CC3366',
+  '#CC3399', '#CC33CC', '#CC33FF', '#CC6600', '#CC6633', '#CC9900', '#CC9933',
+  '#CCCC00', '#CCCC33', '#FF0000', '#FF0033', '#FF0066', '#FF0099', '#FF00CC',
+  '#FF00FF', '#FF3300', '#FF3333', '#FF3366', '#FF3399', '#FF33CC', '#FF33FF',
+  '#FF6600', '#FF6633', '#FF9900', '#FF9933', '#FFCC00', '#FFCC33'
 ];
 
 /**
@@ -15792,6 +16108,11 @@ function useColors() {
   // explicitly
   if (typeof window !== 'undefined' && window.process && window.process.type === 'renderer') {
     return true;
+  }
+
+  // Internet Explorer and Edge do not support colors.
+  if (typeof navigator !== 'undefined' && navigator.userAgent && navigator.userAgent.toLowerCase().match(/(edge|trident)\/(\d+)/)) {
+    return false;
   }
 
   // is webkit? http://stackoverflow.com/a/16459606/376773
@@ -15936,7 +16257,7 @@ function localstorage() {
 
 
 /***/ }),
-/* 50 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 
@@ -15952,7 +16273,12 @@ exports.coerce = coerce;
 exports.disable = disable;
 exports.enable = enable;
 exports.enabled = enabled;
-exports.humanize = __webpack_require__(51);
+exports.humanize = __webpack_require__(53);
+
+/**
+ * Active `debug` instances.
+ */
+exports.instances = [];
 
 /**
  * The currently active debug mode names, and names to skip.
@@ -15968,12 +16294,6 @@ exports.skips = [];
  */
 
 exports.formatters = {};
-
-/**
- * Previous log timestamp.
- */
-
-var prevTime;
 
 /**
  * Select a color.
@@ -16002,6 +16322,8 @@ function selectColor(namespace) {
  */
 
 function createDebug(namespace) {
+
+  var prevTime;
 
   function debug() {
     // disabled?
@@ -16059,13 +16381,26 @@ function createDebug(namespace) {
   debug.enabled = exports.enabled(namespace);
   debug.useColors = exports.useColors();
   debug.color = selectColor(namespace);
+  debug.destroy = destroy;
 
   // env-specific initialization logic for debug instances
   if ('function' === typeof exports.init) {
     exports.init(debug);
   }
 
+  exports.instances.push(debug);
+
   return debug;
+}
+
+function destroy () {
+  var index = exports.instances.indexOf(this);
+  if (index !== -1) {
+    exports.instances.splice(index, 1);
+    return true;
+  } else {
+    return false;
+  }
 }
 
 /**
@@ -16082,10 +16417,11 @@ function enable(namespaces) {
   exports.names = [];
   exports.skips = [];
 
+  var i;
   var split = (typeof namespaces === 'string' ? namespaces : '').split(/[\s,]+/);
   var len = split.length;
 
-  for (var i = 0; i < len; i++) {
+  for (i = 0; i < len; i++) {
     if (!split[i]) continue; // ignore empty strings
     namespaces = split[i].replace(/\*/g, '.*?');
     if (namespaces[0] === '-') {
@@ -16093,6 +16429,11 @@ function enable(namespaces) {
     } else {
       exports.names.push(new RegExp('^' + namespaces + '$'));
     }
+  }
+
+  for (i = 0; i < exports.instances.length; i++) {
+    var instance = exports.instances[i];
+    instance.enabled = exports.enabled(instance.namespace);
   }
 }
 
@@ -16115,6 +16456,9 @@ function disable() {
  */
 
 function enabled(name) {
+  if (name[name.length - 1] === '*') {
+    return true;
+  }
   var i, len;
   for (i = 0, len = exports.skips.length; i < len; i++) {
     if (exports.skips[i].test(name)) {
@@ -16144,7 +16488,7 @@ function coerce(val) {
 
 
 /***/ }),
-/* 51 */
+/* 53 */
 /***/ (function(module, exports) {
 
 /**
@@ -16302,15 +16646,15 @@ function plural(ms, n, name) {
 
 
 /***/ }),
-/* 52 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
 /**
  * Module dependencies.
  */
 
-var tty = __webpack_require__(53);
-var util = __webpack_require__(54);
+var tty = __webpack_require__(55);
+var util = __webpack_require__(56);
 
 /**
  * This is the Node.js implementation of `debug()`.
@@ -16318,7 +16662,7 @@ var util = __webpack_require__(54);
  * Expose `debug()` as the module.
  */
 
-exports = module.exports = __webpack_require__(50);
+exports = module.exports = __webpack_require__(52);
 exports.init = init;
 exports.log = log;
 exports.formatArgs = formatArgs;
@@ -16330,7 +16674,22 @@ exports.useColors = useColors;
  * Colors.
  */
 
-exports.colors = [6, 2, 3, 4, 5, 1];
+exports.colors = [ 6, 2, 3, 4, 5, 1 ];
+
+try {
+  var supportsColor = __webpack_require__(57);
+  if (supportsColor && supportsColor.level >= 2) {
+    exports.colors = [
+      20, 21, 26, 27, 32, 33, 38, 39, 40, 41, 42, 43, 44, 45, 56, 57, 62, 63, 68,
+      69, 74, 75, 76, 77, 78, 79, 80, 81, 92, 93, 98, 99, 112, 113, 128, 129, 134,
+      135, 148, 149, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171,
+      172, 173, 178, 179, 184, 185, 196, 197, 198, 199, 200, 201, 202, 203, 204,
+      205, 206, 207, 208, 209, 214, 215, 220, 221
+    ];
+  }
+} catch (err) {
+  // swallow - we only care if `supports-color` is available; it doesn't have to be.
+}
 
 /**
  * Build up the default `inspectOpts` object from the environment variables.
@@ -16359,30 +16718,13 @@ exports.inspectOpts = Object.keys(process.env).filter(function (key) {
 }, {});
 
 /**
- * The file descriptor to write the `debug()` calls to.
- * Set the `DEBUG_FD` env variable to override with another value. i.e.:
- *
- *   $ DEBUG_FD=3 node script.js 3>debug.log
- */
-
-var fd = parseInt(process.env.DEBUG_FD, 10) || 2;
-
-if (1 !== fd && 2 !== fd) {
-  util.deprecate(function(){}, 'except for stderr(2) and stdout(1), any other usage of DEBUG_FD is deprecated. Override debug.log if you want to use a different log function (https://git.io/debug_fd)')()
-}
-
-var stream = 1 === fd ? process.stdout :
-             2 === fd ? process.stderr :
-             createWritableStdioStream(fd);
-
-/**
  * Is stdout a TTY? Colored output is enabled when `true`.
  */
 
 function useColors() {
   return 'colors' in exports.inspectOpts
     ? Boolean(exports.inspectOpts.colors)
-    : tty.isatty(fd);
+    : tty.isatty(process.stderr.fd);
 }
 
 /**
@@ -16418,22 +16760,30 @@ function formatArgs(args) {
 
   if (useColors) {
     var c = this.color;
-    var prefix = '  \u001b[3' + c + ';1m' + name + ' ' + '\u001b[0m';
+    var colorCode = '\u001b[3' + (c < 8 ? c : '8;5;' + c);
+    var prefix = '  ' + colorCode + ';1m' + name + ' ' + '\u001b[0m';
 
     args[0] = prefix + args[0].split('\n').join('\n' + prefix);
-    args.push('\u001b[3' + c + 'm+' + exports.humanize(this.diff) + '\u001b[0m');
+    args.push(colorCode + 'm+' + exports.humanize(this.diff) + '\u001b[0m');
   } else {
-    args[0] = new Date().toUTCString()
-      + ' ' + name + ' ' + args[0];
+    args[0] = getDate() + name + ' ' + args[0];
+  }
+}
+
+function getDate() {
+  if (exports.inspectOpts.hideDate) {
+    return '';
+  } else {
+    return new Date().toISOString() + ' ';
   }
 }
 
 /**
- * Invokes `util.format()` with the specified arguments and writes to `stream`.
+ * Invokes `util.format()` with the specified arguments and writes to stderr.
  */
 
 function log() {
-  return stream.write(util.format.apply(util, arguments) + '\n');
+  return process.stderr.write(util.format.apply(util, arguments) + '\n');
 }
 
 /**
@@ -16465,74 +16815,6 @@ function load() {
 }
 
 /**
- * Copied from `node/src/node.js`.
- *
- * XXX: It's lame that node doesn't expose this API out-of-the-box. It also
- * relies on the undocumented `tty_wrap.guessHandleType()` which is also lame.
- */
-
-function createWritableStdioStream (fd) {
-  var stream;
-  var tty_wrap = process.binding('tty_wrap');
-
-  // Note stream._type is used for test-module-load-list.js
-
-  switch (tty_wrap.guessHandleType(fd)) {
-    case 'TTY':
-      stream = new tty.WriteStream(fd);
-      stream._type = 'tty';
-
-      // Hack to have stream not keep the event loop alive.
-      // See https://github.com/joyent/node/issues/1726
-      if (stream._handle && stream._handle.unref) {
-        stream._handle.unref();
-      }
-      break;
-
-    case 'FILE':
-      var fs = __webpack_require__(55);
-      stream = new fs.SyncWriteStream(fd, { autoClose: false });
-      stream._type = 'fs';
-      break;
-
-    case 'PIPE':
-    case 'TCP':
-      var net = __webpack_require__(56);
-      stream = new net.Socket({
-        fd: fd,
-        readable: false,
-        writable: true
-      });
-
-      // FIXME Should probably have an option in net.Socket to create a
-      // stream from an existing fd which is writable only. But for now
-      // we'll just add this hack and set the `readable` member to false.
-      // Test: ./node test/fixtures/echo.js < /etc/passwd
-      stream.readable = false;
-      stream.read = null;
-      stream._type = 'pipe';
-
-      // FIXME Hack to have stream not keep the event loop alive.
-      // See https://github.com/joyent/node/issues/1726
-      if (stream._handle && stream._handle.unref) {
-        stream._handle.unref();
-      }
-      break;
-
-    default:
-      // Probably an error on in uv_guess_handle()
-      throw new Error('Implement me. Unknown stream file type!');
-  }
-
-  // For supporting legacy API we put the FD here.
-  stream.fd = fd;
-
-  stream._isStdio = true;
-
-  return stream;
-}
-
-/**
  * Init logic for `debug` instances.
  *
  * Create a new `inspectOpts` object in case `useColors` is set
@@ -16556,49 +16838,94 @@ exports.enable(load());
 
 
 /***/ }),
-/* 53 */
+/* 55 */
 /***/ (function(module, exports) {
 
 module.exports = require("tty");
 
 /***/ }),
-/* 54 */
+/* 56 */
 /***/ (function(module, exports) {
 
 module.exports = require("util");
 
 /***/ }),
-/* 55 */
-/***/ (function(module, exports) {
-
-module.exports = require("fs");
-
-/***/ }),
-/* 56 */
-/***/ (function(module, exports) {
-
-module.exports = require("net");
-
-/***/ }),
 /* 57 */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+var argv = process.argv;
+
+var terminator = argv.indexOf('--');
+var hasFlag = function (flag) {
+	flag = '--' + flag;
+	var pos = argv.indexOf(flag);
+	return pos !== -1 && (terminator !== -1 ? pos < terminator : true);
+};
+
+module.exports = (function () {
+	if ('FORCE_COLOR' in process.env) {
+		return true;
+	}
+
+	if (hasFlag('no-color') ||
+		hasFlag('no-colors') ||
+		hasFlag('color=false')) {
+		return false;
+	}
+
+	if (hasFlag('color') ||
+		hasFlag('colors') ||
+		hasFlag('color=true') ||
+		hasFlag('color=always')) {
+		return true;
+	}
+
+	if (process.stdout && !process.stdout.isTTY) {
+		return false;
+	}
+
+	if (process.platform === 'win32') {
+		return true;
+	}
+
+	if ('COLORTERM' in process.env) {
+		return true;
+	}
+
+	if (process.env.TERM === 'dumb') {
+		return false;
+	}
+
+	if (/^screen|^xterm|^vt100|color|ansi|cygwin|linux/i.test(process.env.TERM)) {
+		return true;
+	}
+
+	return false;
+})();
+
+
+/***/ }),
+/* 58 */
 /***/ (function(module, exports) {
 
 module.exports = require("zlib");
 
 /***/ }),
-/* 58 */
+/* 59 */
 /***/ (function(module) {
 
-module.exports = JSON.parse("{\"_from\":\"axios\",\"_id\":\"axios@0.21.1\",\"_inBundle\":false,\"_integrity\":\"sha1-IlY0gZYvTWvemnbVFu8OXTwJsrg=\",\"_location\":\"/axios\",\"_phantomChildren\":{},\"_requested\":{\"type\":\"tag\",\"registry\":true,\"raw\":\"axios\",\"name\":\"axios\",\"escapedName\":\"axios\",\"rawSpec\":\"\",\"saveSpec\":null,\"fetchSpec\":\"latest\"},\"_requiredBy\":[\"#USER\",\"/\"],\"_resolved\":\"https://registry.npm.taobao.org/axios/download/axios-0.21.1.tgz\",\"_shasum\":\"22563481962f4d6bde9a76d516ef0e5d3c09b2b8\",\"_spec\":\"axios\",\"_where\":\"C:\\\\Users\\\\yzhbo\\\\Desktop\\\\vue-ssr\",\"author\":{\"name\":\"Matt Zabriskie\"},\"browser\":{\"./lib/adapters/http.js\":\"./lib/adapters/xhr.js\"},\"bugs\":{\"url\":\"https://github.com/axios/axios/issues\"},\"bundleDependencies\":false,\"bundlesize\":[{\"path\":\"./dist/axios.min.js\",\"threshold\":\"5kB\"}],\"dependencies\":{\"follow-redirects\":\"^1.10.0\"},\"deprecated\":false,\"description\":\"Promise based HTTP client for the browser and node.js\",\"devDependencies\":{\"bundlesize\":\"^0.17.0\",\"coveralls\":\"^3.0.0\",\"es6-promise\":\"^4.2.4\",\"grunt\":\"^1.0.2\",\"grunt-banner\":\"^0.6.0\",\"grunt-cli\":\"^1.2.0\",\"grunt-contrib-clean\":\"^1.1.0\",\"grunt-contrib-watch\":\"^1.0.0\",\"grunt-eslint\":\"^20.1.0\",\"grunt-karma\":\"^2.0.0\",\"grunt-mocha-test\":\"^0.13.3\",\"grunt-ts\":\"^6.0.0-beta.19\",\"grunt-webpack\":\"^1.0.18\",\"istanbul-instrumenter-loader\":\"^1.0.0\",\"jasmine-core\":\"^2.4.1\",\"karma\":\"^1.3.0\",\"karma-chrome-launcher\":\"^2.2.0\",\"karma-coverage\":\"^1.1.1\",\"karma-firefox-launcher\":\"^1.1.0\",\"karma-jasmine\":\"^1.1.1\",\"karma-jasmine-ajax\":\"^0.1.13\",\"karma-opera-launcher\":\"^1.0.0\",\"karma-safari-launcher\":\"^1.0.0\",\"karma-sauce-launcher\":\"^1.2.0\",\"karma-sinon\":\"^1.0.5\",\"karma-sourcemap-loader\":\"^0.3.7\",\"karma-webpack\":\"^1.7.0\",\"load-grunt-tasks\":\"^3.5.2\",\"minimist\":\"^1.2.0\",\"mocha\":\"^5.2.0\",\"sinon\":\"^4.5.0\",\"typescript\":\"^2.8.1\",\"url-search-params\":\"^0.10.0\",\"webpack\":\"^1.13.1\",\"webpack-dev-server\":\"^1.14.1\"},\"homepage\":\"https://github.com/axios/axios\",\"jsdelivr\":\"dist/axios.min.js\",\"keywords\":[\"xhr\",\"http\",\"ajax\",\"promise\",\"node\"],\"license\":\"MIT\",\"main\":\"index.js\",\"name\":\"axios\",\"repository\":{\"type\":\"git\",\"url\":\"git+https://github.com/axios/axios.git\"},\"scripts\":{\"build\":\"NODE_ENV=production grunt build\",\"coveralls\":\"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js\",\"examples\":\"node ./examples/server.js\",\"fix\":\"eslint --fix lib/**/*.js\",\"postversion\":\"git push && git push --tags\",\"preversion\":\"npm test\",\"start\":\"node ./sandbox/server.js\",\"test\":\"grunt test && bundlesize\",\"version\":\"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json\"},\"typings\":\"./index.d.ts\",\"unpkg\":\"dist/axios.min.js\",\"version\":\"0.21.1\"}");
+module.exports = JSON.parse("{\"_from\":\"axios@^0.21.1\",\"_id\":\"axios@0.21.1\",\"_inBundle\":false,\"_integrity\":\"sha1-IlY0gZYvTWvemnbVFu8OXTwJsrg=\",\"_location\":\"/axios\",\"_phantomChildren\":{},\"_requested\":{\"type\":\"range\",\"registry\":true,\"raw\":\"axios@^0.21.1\",\"name\":\"axios\",\"escapedName\":\"axios\",\"rawSpec\":\"^0.21.1\",\"saveSpec\":null,\"fetchSpec\":\"^0.21.1\"},\"_requiredBy\":[\"/\"],\"_resolved\":\"https://registry.npm.taobao.org/axios/download/axios-0.21.1.tgz?cache=0&sync_timestamp=1608611162952&other_urls=https%3A%2F%2Fregistry.npm.taobao.org%2Faxios%2Fdownload%2Faxios-0.21.1.tgz\",\"_shasum\":\"22563481962f4d6bde9a76d516ef0e5d3c09b2b8\",\"_spec\":\"axios@^0.21.1\",\"_where\":\"C:\\\\Users\\\\yu\\\\Documents\\\\vue-ssr\",\"author\":{\"name\":\"Matt Zabriskie\"},\"browser\":{\"./lib/adapters/http.js\":\"./lib/adapters/xhr.js\"},\"bugs\":{\"url\":\"https://github.com/axios/axios/issues\"},\"bundleDependencies\":false,\"bundlesize\":[{\"path\":\"./dist/axios.min.js\",\"threshold\":\"5kB\"}],\"dependencies\":{\"follow-redirects\":\"^1.10.0\"},\"deprecated\":false,\"description\":\"Promise based HTTP client for the browser and node.js\",\"devDependencies\":{\"bundlesize\":\"^0.17.0\",\"coveralls\":\"^3.0.0\",\"es6-promise\":\"^4.2.4\",\"grunt\":\"^1.0.2\",\"grunt-banner\":\"^0.6.0\",\"grunt-cli\":\"^1.2.0\",\"grunt-contrib-clean\":\"^1.1.0\",\"grunt-contrib-watch\":\"^1.0.0\",\"grunt-eslint\":\"^20.1.0\",\"grunt-karma\":\"^2.0.0\",\"grunt-mocha-test\":\"^0.13.3\",\"grunt-ts\":\"^6.0.0-beta.19\",\"grunt-webpack\":\"^1.0.18\",\"istanbul-instrumenter-loader\":\"^1.0.0\",\"jasmine-core\":\"^2.4.1\",\"karma\":\"^1.3.0\",\"karma-chrome-launcher\":\"^2.2.0\",\"karma-coverage\":\"^1.1.1\",\"karma-firefox-launcher\":\"^1.1.0\",\"karma-jasmine\":\"^1.1.1\",\"karma-jasmine-ajax\":\"^0.1.13\",\"karma-opera-launcher\":\"^1.0.0\",\"karma-safari-launcher\":\"^1.0.0\",\"karma-sauce-launcher\":\"^1.2.0\",\"karma-sinon\":\"^1.0.5\",\"karma-sourcemap-loader\":\"^0.3.7\",\"karma-webpack\":\"^1.7.0\",\"load-grunt-tasks\":\"^3.5.2\",\"minimist\":\"^1.2.0\",\"mocha\":\"^5.2.0\",\"sinon\":\"^4.5.0\",\"typescript\":\"^2.8.1\",\"url-search-params\":\"^0.10.0\",\"webpack\":\"^1.13.1\",\"webpack-dev-server\":\"^1.14.1\"},\"homepage\":\"https://github.com/axios/axios\",\"jsdelivr\":\"dist/axios.min.js\",\"keywords\":[\"xhr\",\"http\",\"ajax\",\"promise\",\"node\"],\"license\":\"MIT\",\"main\":\"index.js\",\"name\":\"axios\",\"repository\":{\"type\":\"git\",\"url\":\"git+https://github.com/axios/axios.git\"},\"scripts\":{\"build\":\"NODE_ENV=production grunt build\",\"coveralls\":\"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js\",\"examples\":\"node ./examples/server.js\",\"fix\":\"eslint --fix lib/**/*.js\",\"postversion\":\"git push && git push --tags\",\"preversion\":\"npm test\",\"start\":\"node ./sandbox/server.js\",\"test\":\"grunt test && bundlesize\",\"version\":\"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json\"},\"typings\":\"./index.d.ts\",\"unpkg\":\"dist/axios.min.js\",\"version\":\"0.21.1\"}");
 
 /***/ }),
-/* 59 */
+/* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var utils = __webpack_require__(20);
+var utils = __webpack_require__(22);
 
 /**
  * Config-specific merge-function which creates a new config-object
@@ -16686,7 +17013,7 @@ module.exports = function mergeConfig(config1, config2) {
 
 
 /***/ }),
-/* 60 */
+/* 61 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16712,13 +17039,13 @@ module.exports = Cancel;
 
 
 /***/ }),
-/* 61 */
+/* 62 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
 
 
-var Cancel = __webpack_require__(60);
+var Cancel = __webpack_require__(61);
 
 /**
  * A `CancelToken` is an object that can be used to request cancellation of an operation.
@@ -16776,7 +17103,7 @@ module.exports = CancelToken;
 
 
 /***/ }),
-/* 62 */
+/* 63 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
@@ -16810,7 +17137,7 @@ module.exports = function spread(callback) {
 
 
 /***/ }),
-/* 63 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
 "use strict";
